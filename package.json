@@ -9,6 +9,7 @@
     "firefox": "bash scripts/build.sh firefox",
     "edge": "bash scripts/build.sh edge",
     "prod": "bash scripts/build.sh prod",
+    "check:cloud-permissions": "node scripts/check-cloud-permissions.js",
     "pretest": "bash scripts/build.sh test",
     "test": "node scripts/test-runner.js"
   },
