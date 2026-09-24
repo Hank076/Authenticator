@@ -67,6 +67,7 @@ fork 自 [Authenticator-Extension/Authenticator](https://github.com/Authenticato
 6. **`UserSettings.removeItem` 是 read-modify-write**（`settings.ts:117`）：讀整份設定 blob→刪一個 key→寫回整份。多次未 await 的 removeItem 會交錯——各讀同一份快照、後寫者回滾前者的刪除（2026-07 Dropbox 登出曾因此殘留 refresh token）。要刪多個 key：`updateItems()`→delete 多個欄位→**單次** `commitItems()`。
 7. **截圖腳本需保留 `en` _locales**：`src/store/i18n.ts` 永遠 `fetch("/_locales/en/messages.json")`；刪掉 en 語系會讓 popup mount 失敗（畫面空白）。`scripts/capture-store-screenshots.js` 靠「只留目標 + `en` _locales + 設 `default_locale`」強制截圖語系。
 8. **智慧過濾預設開啟**：`smartFilter` 未設定時視為 `true`，明確儲存 `false` 時維持關閉；設定頁與帳戶清單共用 `useMenuStore().smartFilter` 的有效狀態。
+9. **匯入頁面的掛載節點與樣式根節點不可共用 `id`**：`view/import.html` 使用 `import-app` 掛載，`src/components/Import.vue` 使用 `import` 套用全頁樣式；重複 ID 會讓 `min-height: 100vh` 與外距套用兩次。
 
 ## Testing / Build Gotchas（動工前必讀）
 

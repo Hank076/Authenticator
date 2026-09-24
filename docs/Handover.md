@@ -7,6 +7,7 @@
 | 待辦 | 為什麼 | 從哪裡開始 |
 | --- | --- | --- |
 | 在 Chrome 載入本機 `chrome/` 並驗收智慧過濾與搜尋 | 使用者需確認預設開啟、手動關閉後保留設定及搜尋結果 | `chrome://extensions` 重新載入擴充套件，測試 `src/components/Popup/MainBody.vue` 對應畫面 |
+| 在 Chrome 驗收匯入備份頁面高度 | 使用者需確認自己的螢幕尺寸下不再有多餘捲軸 | 從 `chrome://extensions` 重新載入擴充套件，開啟 `view/import.html` 的檔案匯入面板 |
 
 ## 重要不緊急
 
