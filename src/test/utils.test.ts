@@ -10,7 +10,10 @@ import { EntryStorage } from "../models/storage";
 import { UserSettings } from "../models/settings";
 import { OTPEntry, OTPType, OTPAlgorithm } from "../models/otp";
 import { Encryption, decryptString } from "../models/encryption";
-import { getEntryDataFromOTPAuthPerLine } from "../import";
+import {
+  getEntryDataFromOTPAuthPerLine,
+  restoreEntryFromEnvelope,
+} from "../import";
 import { KeyUtilities } from "../models/key-utilities";
 import { MultiFormatWriter, BarcodeFormat } from "@zxing/library";
 import { decodeQrFromImageData, computeQrCropRegion } from "../qr-decoder";
@@ -408,6 +411,62 @@ describe("EntryStorage.backupGetExport decrypts EncOTPStorage entries for a plai
     } finally {
       await EntryStorage.delete(entry);
     }
+  });
+});
+
+// AES-GCM only authenticates an EncOTPStorage's `data`. Whoever holds the
+// backup file can add fields to the outer JSON without the password; a restore
+// must ignore them, or an injected `host` would rebind a real secret's
+// host-bound autofill to the attacker's site.
+describe("restoreEntryFromEnvelope ignores unauthenticated envelope fields", () => {
+  const plaintext = {
+    dataType: "OTPStorage",
+    hash: "11111111-2222-4333-8444-555555555555",
+    index: 3,
+    type: "totp",
+    secret: "JBSWY3DPEHPK3PXP",
+    issuer: "Bank::bank.test",
+    account: "user",
+    encrypted: false,
+  };
+
+  it("keeps only the decrypted fields when the envelope carries extras", () => {
+    const tampered = {
+      dataType: "EncOTPStorage",
+      keyId: "key-id",
+      data: "v4:unchanged-ciphertext",
+      index: 9,
+      host: "evil.test",
+      digits: 8,
+      algorithm: "SHA512",
+      period: 60,
+    } as unknown as EncOTPStorage;
+
+    const restored = restoreEntryFromEnvelope(tampered, plaintext);
+    expect(restored).to.deep.equal({ ...plaintext, encrypted: false });
+  });
+
+  it("falls back to the envelope index only when the plaintext has none", () => {
+    const { index: _omit, ...withoutIndex } = plaintext;
+    const envelope = {
+      dataType: "EncOTPStorage",
+      keyId: "key-id",
+      data: "v4:x",
+      index: 7,
+    } as EncOTPStorage;
+    expect(restoreEntryFromEnvelope(envelope, withoutIndex)?.index).to.equal(7);
+  });
+
+  it("rejects decrypted values that are not objects", () => {
+    const envelope = {
+      dataType: "EncOTPStorage",
+      keyId: "key-id",
+      data: "v4:x",
+      index: 0,
+    } as EncOTPStorage;
+    expect(restoreEntryFromEnvelope(envelope, null)).to.equal(null);
+    expect(restoreEntryFromEnvelope(envelope, [plaintext])).to.equal(null);
+    expect(restoreEntryFromEnvelope(envelope, "secret")).to.equal(null);
   });
 });
 

@@ -108,11 +108,14 @@ export async function decryptBackupData(
       } catch {
         continue;
       }
-      storageItem = {
-        ...unknownStorageItem,
-        ...decryptedData,
-        encrypted: false,
-      };
+      const restored = restoreEntryFromEnvelope(
+        unknownStorageItem,
+        decryptedData,
+      );
+      if (!restored) {
+        continue;
+      }
+      storageItem = restored;
     } else {
       storageItem = unknownStorageItem;
     }
@@ -141,6 +144,32 @@ export async function decryptBackupData(
     decryptedBackupData[hash] = storageItem;
   }
   return decryptedBackupData;
+}
+
+// AES-GCM only authenticates the envelope's `data`; the outer JSON (dataType,
+// keyId, index and any extra field) can be edited by whoever holds the backup
+// file. Entry fields must therefore come from the decrypted plaintext only,
+// otherwise an injected outer `host`/`digits`/... would survive the restore.
+export function restoreEntryFromEnvelope(
+  envelope: EncOTPStorage,
+  decryptedData: unknown,
+): RawOTPStorage | null {
+  if (
+    typeof decryptedData !== "object" ||
+    decryptedData === null ||
+    Array.isArray(decryptedData)
+  ) {
+    return null;
+  }
+  const storageItem = {
+    ...(decryptedData as RawOTPStorage),
+    encrypted: false,
+  };
+  if (typeof storageItem.index !== "number") {
+    // index only affects ordering, so the unauthenticated value is acceptable
+    storageItem.index = typeof envelope.index === "number" ? envelope.index : 0;
+  }
+  return storageItem;
 }
 
 async function findAndUnlockKey(
