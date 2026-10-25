@@ -4,7 +4,7 @@
   "description": "Authenticator generates 2-Step Verification codes in your browser.",
   "scripts": {
     "compile": "bash scripts/build.sh firefox",
-    "dev:chrome": "npm run pretest && webpack --config ./webpack.watch.js",
+    "dev:chrome": "pnpm run pretest && webpack --config ./webpack.watch.js",
     "chrome": "bash scripts/build.sh chrome",
     "firefox": "bash scripts/build.sh firefox",
     "edge": "bash scripts/build.sh edge",
@@ -31,6 +31,7 @@
     "@types/chrome": "^0.2.2",
     "@types/lodash": "^4.14.166",
     "@types/mocha": "^10.0.10",
+    "@types/node": "^18.15.11",
     "@types/sinon": "^22.0.0",
     "@types/sinon-chai": "^3.2.12",
     "@types/sinon-chrome": "^2.2.10",
@@ -41,6 +42,7 @@
     "buffer": "^6.0.3",
     "chai": "^4.2.0",
     "eslint": "^10.7.0",
+    "events": "^3.3.0",
     "fork-ts-checker-webpack-plugin": "^9.1.0",
     "lodash": "^4.18.1",
     "mocha": "^11.7.6",
@@ -72,7 +74,5 @@
     "vue": "^3.5.40",
     "vue-draggable-plus": "^0.6.1"
   },
-  "allowScripts": {
-    "puppeteer@24.43.1": true
-  }
+  "packageManager": "pnpm@12.8.1"
 }

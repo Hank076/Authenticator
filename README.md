@@ -18,30 +18,25 @@ This is a fork of [Authenticator-Extension/Authenticator](https://github.com/Aut
 ## Build Setup
 
 ```bash
-# install dependencies (~2 min)
-npm ci
+# install dependencies (requires pnpm; version pinned in package.json "packageManager")
+pnpm install
 
 # build for a target
-npm run [chrome, firefox, edge, prod]
+pnpm run [chrome, firefox, edge, prod]
 ```
 
 Notes:
 
 - Build output goes to `chrome/` / `firefox/` / `edge/` (bundles under `<target>/js/`); these directories are gitignored. Each target build wipes the other targets' output directories first.
-- npm 12+ blocks dependency install scripts by default, so `npm ci` does **not** download puppeteer's Chromium. Before the first `npm test`, run:
-
-  ```bash
-  npm install-scripts approve puppeteer
-  npm rebuild puppeteer
-  ```
-- `npm run prod` aborts if `src/models/credentials.ts` is empty (OAuth credentials are kept out of the repo). `chrome`/`test` builds only warn — everything works except live cloud backup.
-- **Windows**: builds run through `bash scripts/build.sh`, so use a full [Git Bash](https://git-scm.com/download/win) (with complete coreutils). Running `npm test` from plain PowerShell fails with `'bash' is not recognized`.
+- `pnpm install` downloads Chrome for Testing for the test suite: `pnpm-workspace.yaml` allows puppeteer's install script via `allowBuilds`. Set `PUPPETEER_SKIP_DOWNLOAD=true` to skip the download when you only build.
+- `pnpm run prod` aborts if `src/models/credentials.ts` is empty (OAuth credentials are kept out of the repo). `chrome`/`test` builds only warn — everything works except live cloud backup.
+- **Windows**: builds run through `bash scripts/build.sh`, so use a full [Git Bash](https://git-scm.com/download/win) (with complete coreutils). Running `pnpm run test` from plain PowerShell fails with `'bash' is not recognized`.
 
 ## Development (Chrome)
 
 ```bash
 # watch build
-npm run dev:chrome
+pnpm run dev:chrome
 # then load the unpacked extension from the `chrome/` directory
 ```
 
@@ -50,7 +45,7 @@ There is no auto-reload: reload the extension manually after each rebuild. The t
 ## Testing
 
 ```bash
-npm test
+pnpm run test
 ```
 
 Runs the extension in a real browser via puppeteer with in-browser mocha (`headless: false`, so a GUI is required).

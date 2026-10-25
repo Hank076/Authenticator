@@ -79,7 +79,7 @@ module.exports = {
       __VUE_PROD_DEVTOOLS__: "false",
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
     }),
-    // .vue type checking is done by vue-tsc (npm run typecheck), not here;
+    // .vue files are not type-checked here (vue-tsc is not set up);
     // fork-ts-checker's vue extension needs Vue 2's vue-template-compiler.
     new ForkTsCheckerWebpackPlugin(),
   ],

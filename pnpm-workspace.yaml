@@ -1,0 +1,6 @@
+allowBuilds:
+  # Optional dependency of sass, only used by `sass --watch`; the watch build
+  # goes through webpack instead, so the native build is not needed.
+  '@parcel/watcher': false
+  # postinstall downloads Chrome for Testing, which the test runner loads.
+  puppeteer: true
