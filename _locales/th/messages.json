@@ -289,6 +289,9 @@
     "message": "โปรดระบุรหัสผ่านที่ถูกต้องเพื่อนำเข้าการสำรองข้อมูล",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "องค์กรของคุณกำหนดให้ต้องมีรหัสผ่าน ตั้งรหัสผ่านในเมนูของส่วนขยายก่อนเพิ่มหรือนำเข้าบัญชี"
+  },
   "local_passphrase_warning": {
     "message": "รหัสผ่านของคุณถูกเก็บไว้ในเครื่อง กรุณาเปลี่ยนในเมนูความปลอดภัยทันที",
     "description": "localStorage password warning."

@@ -289,6 +289,9 @@
     "message": "Трябва да въведете правилна парола, за да импортирате резервните копия.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Вашата организация изисква парола. Задайте парола от менюто на разширението, преди да добавяте или импортирате акаунти."
+  },
   "local_passphrase_warning": {
     "message": "Паролата ви се съхранява локално, моля, променете я от менюто за сигурност незабавно.",
     "description": "localStorage password warning."

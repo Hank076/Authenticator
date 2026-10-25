@@ -289,6 +289,9 @@
     "message": "Deve fornecer a palavra-passe correta para importar as cópias de segurança.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "A sua organização exige uma palavra-passe. Defina uma no menu da extensão antes de adicionar ou importar contas."
+  },
   "local_passphrase_warning": {
     "message": "A palavra-passe encontra-se armazenada localmente. Por favor, altere-a no menu de segurança imediatamente.",
     "description": "localStorage password warning."

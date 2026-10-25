@@ -6,7 +6,8 @@ import {
   cloudBackupAllowed,
   shouldApplySearchFilter,
 } from "../utils";
-import { EntryStorage } from "../models/storage";
+import * as sinon from "sinon";
+import { EntryStorage, ManagedStorage } from "../models/storage";
 import { UserSettings } from "../models/settings";
 import { OTPEntry, OTPType, OTPAlgorithm } from "../models/otp";
 import { Encryption, decryptString } from "../models/encryption";
@@ -467,6 +468,82 @@ describe("restoreEntryFromEnvelope ignores unauthenticated envelope fields", () 
     expect(restoreEntryFromEnvelope(envelope, null)).to.equal(null);
     expect(restoreEntryFromEnvelope(envelope, [plaintext])).to.equal(null);
     expect(restoreEntryFromEnvelope(envelope, "secret")).to.equal(null);
+  });
+});
+
+// enforcePassword promises no account is added before a master password
+// exists. The popup only gates its own buttons, so the storage write paths
+// (import page, QR capture, manual add) must enforce the policy themselves.
+describe("EntryStorage enforces the enforcePassword policy on writes", () => {
+  const hash = "99999999-8888-4777-8666-555555555555";
+  const raw: RawOTPStorage = {
+    hash,
+    index: 0,
+    type: "totp",
+    secret: "JBSWY3DPEHPK3PXP",
+    issuer: "PolicyTest",
+    account: "user",
+    encrypted: false,
+  };
+
+  afterEach(async () => {
+    sinon.restore();
+    const leftover = (await EntryStorage.get()).find((e) => e.hash === hash);
+    if (leftover) {
+      await EntryStorage.delete(leftover);
+    }
+  });
+
+  it("refuses to import without a password when the policy is set", async () => {
+    sinon.stub(ManagedStorage, "get").resolves(true);
+    sinon.stub(EntryStorage, "hasEncryptionKey").resolves(false);
+
+    let error: unknown;
+    try {
+      await EntryStorage.import(new Encryption("", ""), { [hash]: raw });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+    const stored = (await EntryStorage.get()).find((e) => e.hash === hash);
+    expect(stored, "nothing may be written").to.equal(undefined);
+  });
+
+  it("refuses to add a single entry without a password when the policy is set", async () => {
+    sinon.stub(ManagedStorage, "get").resolves(true);
+    sinon.stub(EntryStorage, "hasEncryptionKey").resolves(false);
+    const entry = new OTPEntry(
+      {
+        type: OTPType.totp,
+        index: 0,
+        issuer: "PolicyTest",
+        account: "user",
+        encrypted: false,
+        secret: "JBSWY3DPEHPK3PXP",
+      },
+      new Encryption("", ""),
+    );
+
+    let error: unknown;
+    try {
+      await EntryStorage.add(entry);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+  });
+
+  it("reports whether the policy blocks writes", async () => {
+    const get = sinon.stub(ManagedStorage, "get").resolves(true);
+    const hasKey = sinon.stub(EntryStorage, "hasEncryptionKey").resolves(false);
+    expect(await EntryStorage.isPasswordRequiredByPolicy()).to.equal(true);
+
+    hasKey.resolves(true);
+    expect(await EntryStorage.isPasswordRequiredByPolicy()).to.equal(false);
+
+    get.resolves(false);
+    hasKey.resolves(false);
+    expect(await EntryStorage.isPasswordRequiredByPolicy()).to.equal(false);
   });
 });
 

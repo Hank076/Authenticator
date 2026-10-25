@@ -289,6 +289,9 @@
     "message": "ব্যাকআপগুলো আমদানি করতে আপনাকে সঠিক পাসওয়ার্ড প্রবেশ করাতে হবে।",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "আপনার প্রতিষ্ঠান পাসওয়ার্ড বাধ্যতামূলক করেছে। অ্যাকাউন্ট যোগ বা ইমপোর্ট করার আগে এক্সটেনশনের মেনু থেকে একটি পাসওয়ার্ড সেট করুন।"
+  },
   "local_passphrase_warning": {
     "message": "আপনার পাসওয়ার্ড স্থানীয়ভাবে সংরক্ষণ করা হয়েছে, অনুগ্রহ করে নিরাপত্তা মেনুতে অবিলম্বে পরিবর্তন করুন।",
     "description": "localStorage password warning."

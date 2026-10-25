@@ -289,6 +289,9 @@
     "message": "Ju duhet të vendosni fjalëkalimin e saktë për të importuar kopjet rezervë.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Organizata juaj kërkon një fjalëkalim. Vendosni një fjalëkalim në menunë e shtesës përpara se të shtoni ose importoni llogari."
+  },
   "local_passphrase_warning": {
     "message": "Fjalëkalimi juaj është ruajtur në mënyrë lokale, ju lutem ndryshojeni menjëherë në menynë e sigurisë.",
     "description": "localStorage password warning."

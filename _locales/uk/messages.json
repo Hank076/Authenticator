@@ -289,6 +289,9 @@
     "message": "Ви повинні вказати правильний пароль для імпорту резервних копій.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Ваша організація вимагає пароль. Установіть пароль у меню розширення, перш ніж додавати чи імпортувати облікові записи."
+  },
   "local_passphrase_warning": {
     "message": "Ваш пароль зберігається локально, будь ласка, негайно змініть його в меню безпеки.",
     "description": "localStorage password warning."

@@ -289,6 +289,9 @@
     "message": "Je nutné zadat správné heslo pro import zálohy.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Vaše organizace vyžaduje heslo. Před přidáním nebo importem účtů nastavte heslo v nabídce rozšíření."
+  },
   "local_passphrase_warning": {
     "message": "Vaše heslo je uloženo lokálně, ihned je prosím změňte v sekci Zabezpečení.",
     "description": "localStorage password warning."

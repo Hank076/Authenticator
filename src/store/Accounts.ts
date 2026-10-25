@@ -1,6 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { EntryStorage, BrowserStorage, isOldKey } from "../models/storage";
+import {
+  EntryStorage,
+  BrowserStorage,
+  ManagedStorage,
+  isOldKey,
+} from "../models/storage";
 import { Encryption } from "../models/encryption";
 import { legacyDecryptToHex } from "../models/legacy-decrypt";
 import { OTPType, OTPAlgorithm } from "../models/otp";
@@ -560,6 +565,10 @@ export const useAccountsStore = defineStore("accounts", () => {
         keyId: key.id,
       });
     } else {
+      // SetPasswordPage only hides the remove button; enforce the policy here
+      if (await ManagedStorage.get("enforcePassword", false)) {
+        throw new Error("enforcePassword policy forbids removing the password");
+      }
       for (const entry of entries.value) {
         applyEntryEncryption({
           entry,

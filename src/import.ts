@@ -35,6 +35,8 @@ async function init() {
 
     app.config.globalProperties.$entries = entries;
     app.config.globalProperties.$encryption = encryption;
+    app.config.globalProperties.$passwordRequired =
+      await EntryStorage.isPasswordRequiredByPolicy();
 
     const instance = app.mount("#import-app");
 

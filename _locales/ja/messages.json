@@ -249,6 +249,9 @@
     "message": "バックアップをインポートするために正しいパスワードを入力してください。",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "組織によりパスワードの設定が必須になっています。アカウントを追加またはインポートする前に、拡張機能のメニューでパスワードを設定してください。"
+  },
   "local_passphrase_warning": {
     "message": "パスワードをローカル環境に保存しました。すぐにメニューのセキュリティから変更してください。",
     "description": "localStorage password warning."

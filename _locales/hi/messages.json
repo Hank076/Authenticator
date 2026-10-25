@@ -289,6 +289,9 @@
     "message": "बैकअप आयात करने के लिए आपको सही पासवर्ड प्रदान करना होगा।",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "आपके संगठन ने पासवर्ड अनिवार्य किया है। खाते जोड़ने या आयात करने से पहले एक्सटेंशन मेनू में पासवर्ड सेट करें।"
+  },
   "local_passphrase_warning": {
     "message": "आपका पासवर्ड स्थानीय रूप से संग्रहीत है, कृपया इसे तुरंत सुरक्षा मेनू में बदलें।",
     "description": "localStorage password warning."

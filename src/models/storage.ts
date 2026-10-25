@@ -520,10 +520,27 @@ export class EntryStorage {
     return _data;
   }
 
+  // The enforcePassword policy promises that no account is added before a
+  // master password exists. The popup only hides its add buttons, so every
+  // write path that creates entries must enforce it here as well.
+  static async isPasswordRequiredByPolicy(): Promise<boolean> {
+    const enforcePassword = await ManagedStorage.get("enforcePassword", false);
+    return Boolean(enforcePassword) && !(await this.hasEncryptionKey());
+  }
+
+  private static async assertPasswordPolicySatisfied() {
+    if (await this.isPasswordRequiredByPolicy()) {
+      throw new Error(
+        "enforcePassword policy requires a password before adding accounts",
+      );
+    }
+  }
+
   static async import(
     encryption: Encryption,
     data: { [hash: string]: RawOTPStorage },
   ) {
+    await this.assertPasswordPolicySatisfied();
     let _data = await BrowserStorage.get();
     for (const hash of Object.keys(data)) {
       // never trust data import from user
@@ -640,6 +657,7 @@ export class EntryStorage {
   }
 
   static async add(entry: OTPEntry) {
+    await this.assertPasswordPolicySatisfied();
     await BrowserStorage.set({
       [entry.hash]: await this.getOTPStorageFromEntry(entry),
     });

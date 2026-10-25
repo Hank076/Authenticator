@@ -289,6 +289,9 @@
     "message": "Lai importētu rezerves kopijas, ir jānorāda pareiza parole.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Jūsu organizācija pieprasa paroli. Pirms kontu pievienošanas vai importēšanas iestatiet paroli paplašinājuma izvēlnē."
+  },
   "local_passphrase_warning": {
     "message": "Jūsu parole ir saglabāta lokāli, lūdzu, nekavējoties nomainiet to drošības izvēlnē.",
     "description": "localStorage password warning."

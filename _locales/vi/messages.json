@@ -289,6 +289,9 @@
     "message": "Mật khẩu của bản sao lưu bạn vừa nhập không đúng.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Tổ chức của bạn yêu cầu mật khẩu. Hãy đặt mật khẩu trong menu tiện ích trước khi thêm hoặc nhập tài khoản."
+  },
   "local_passphrase_warning": {
     "message": "Mật khẩu của bạn đang được lưu trữ cục bộ, vui lòng thay đổi nó trong trình đơn bảo mật ngay.",
     "description": "localStorage password warning."

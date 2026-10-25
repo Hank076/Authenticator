@@ -289,6 +289,9 @@
     "message": "Meg kell adnia a helyes jelszót a mentések importálásához.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "A szervezete jelszót ír elő. Fiókok hozzáadása vagy importálása előtt állítson be jelszót a bővítmény menüjében."
+  },
   "local_passphrase_warning": {
     "message": "Az Ön jelszava helyben van tárolva, kérjük, módosítsa haladéktalanul a biztonsági menüben.",
     "description": "localStorage password warning."

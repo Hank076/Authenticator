@@ -289,6 +289,9 @@
     "message": "Masukkan kata sandi yang tepat untuk mengimpor cadangan.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Organisasi Anda mewajibkan kata sandi. Atur kata sandi di menu ekstensi sebelum menambahkan atau mengimpor akun."
+  },
   "local_passphrase_warning": {
     "message": "Kata sandi Anda disimpan secara lokal, segera ubah di menu keamanan.",
     "description": "localStorage password warning."

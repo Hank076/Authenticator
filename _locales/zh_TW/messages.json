@@ -289,6 +289,9 @@
     "message": "您必須提供正確的密碼才能匯入備份。",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "您的組織要求設定密碼。新增或匯入帳戶前，請先在擴充功能選單中設定密碼。"
+  },
   "local_passphrase_warning": {
     "message": "您的密碼儲存在本機，請立即透過安全選單變更密碼。",
     "description": "localStorage password warning."

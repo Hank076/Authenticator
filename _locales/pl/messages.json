@@ -289,6 +289,9 @@
     "message": "Należy podać prawidłowe hasło, żeby zaimportować kopię zapasową.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Twoja organizacja wymaga hasła. Ustaw hasło w menu rozszerzenia przed dodaniem lub zaimportowaniem kont."
+  },
   "local_passphrase_warning": {
     "message": "Twoje hasło jest przechowywane lokalnie, zmień je jak najszybciej w menu Zabezpieczenia.",
     "description": "localStorage password warning."

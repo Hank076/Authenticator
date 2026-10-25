@@ -289,6 +289,9 @@
     "message": "يجب توفير كلمة المرور الصحيحة لاستيراد النسخ الاحتياطي.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "تتطلب مؤسستك كلمة مرور. عيّن كلمة مرور من قائمة الإضافة قبل إضافة الحسابات أو استيرادها."
+  },
   "local_passphrase_warning": {
     "message": "كلمة المرور الخاصة بك مخزنة محلياً، يرجى تغييرها في قائمة الأمان على الفور.",
     "description": "localStorage password warning."

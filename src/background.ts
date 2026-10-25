@@ -385,6 +385,14 @@ async function getTotp(
           !silent && chrome.tabs.sendMessage(id, { action: "errorenc" });
           return false;
         }
+        if (await EntryStorage.isPasswordRequiredByPolicy()) {
+          !silent &&
+            chrome.tabs.sendMessage(id, {
+              action: "text",
+              text: chrome.i18n.getMessage("import_requires_password"),
+            });
+          return false;
+        }
         await EntryStorage.import(encryption, entryData);
         !silent && chrome.tabs.sendMessage(id, { action: "added", account });
         return true;

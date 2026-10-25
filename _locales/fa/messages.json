@@ -289,6 +289,9 @@
     "message": "باید کلمه عبور صحیح را برای وارد کردن فایل‌های پشتیبان ارائه دهید.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "سازمان شما گذرواژه را الزامی کرده است. پیش از افزودن یا وارد کردن حساب‌ها، از منوی افزونه یک گذرواژه تنظیم کنید."
+  },
   "local_passphrase_warning": {
     "message": "کلمه عبور شما به صورت محلی ذخیره شده است، لطفا هر چه زودتر آن را در منوی امنیت تغییر دهید.",
     "description": "localStorage password warning."

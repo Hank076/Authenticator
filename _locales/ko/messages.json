@@ -289,6 +289,9 @@
     "message": "백업을 가져오려면 올바른 비밀번호를 입력해야 해요.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "조직에서 비밀번호 설정을 요구합니다. 계정을 추가하거나 가져오기 전에 확장 프로그램 메뉴에서 비밀번호를 설정하세요."
+  },
   "local_passphrase_warning": {
     "message": "비밀번호가 로컬 위치에 저장됐어요. 보안 메뉴에서 즉시 변경해 주세요.",
     "description": "localStorage password warning."

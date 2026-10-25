@@ -289,6 +289,9 @@
     "message": "Vous devez fournir le mot de passe correct pour importer une sauvegarde.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Votre organisation exige un mot de passe. Définissez-en un dans le menu de l'extension avant d'ajouter ou d'importer des comptes."
+  },
   "local_passphrase_warning": {
     "message": "Votre mot de passe est stocké localement, veuillez le changer immédiatement par l'intermédiaire du menu sécurité.",
     "description": "localStorage password warning."

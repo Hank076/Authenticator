@@ -289,6 +289,9 @@
     "message": "За увоз резервних копија морате унети тачну лозинку.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Ваша организација захтева лозинку. Поставите лозинку у менију проширења пре додавања или увоза налога."
+  },
   "local_passphrase_warning": {
     "message": "Ваша лозинка је сачувана локално, молимо одмах је промените у менију Безбедност.",
     "description": "localStorage password warning."

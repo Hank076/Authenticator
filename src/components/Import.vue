@@ -1,6 +1,6 @@
 <template>
   <div id="import" class="theme-auto">
-    <div class="import-card" v-if="!shouldShowPassphrase">
+    <div class="import-card" v-if="!passwordRequired && !shouldShowPassphrase">
       <div class="import-header">
         <div class="import-logo">
           <svg
@@ -91,7 +91,10 @@
         <component v-bind:is="importType" />
       </div>
     </div>
-    <div v-if="shouldShowPassphrase" class="error_password">
+    <div v-if="passwordRequired" class="error_password">
+      {{ i18n.import_requires_password }}
+    </div>
+    <div v-else-if="shouldShowPassphrase" class="error_password">
       {{ i18n.import_error_password }}
     </div>
   </div>
@@ -110,6 +113,7 @@ export default defineComponent({
       : "FileImport";
     return {
       importType,
+      passwordRequired: this.$passwordRequired,
       shouldShowPassphrase: shouldShowPassphrase(this.$entries),
     };
   },

@@ -289,6 +289,9 @@
     "message": "Du måste ange rätt lösenord för att importera säkerhetskopior.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Din organisation kräver ett lösenord. Ange ett i tilläggets meny innan du lägger till eller importerar konton."
+  },
   "local_passphrase_warning": {
     "message": "Ditt lösenord lagras lokalt, var vänlig ändra det på säkerhetsmenyn omedelbart.",
     "description": "localStorage password warning."

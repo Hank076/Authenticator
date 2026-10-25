@@ -289,6 +289,9 @@
     "message": "Norėdami importuoti atsargines kopijas, turite nurodyti tinkamą slaptažodį.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Jūsų organizacija reikalauja slaptažodžio. Prieš pridėdami ar importuodami paskyras, nustatykite slaptažodį plėtinio meniu."
+  },
   "local_passphrase_warning": {
     "message": "Jūsų slaptažodis saugomas vietoje, nedelsdami jį pakeiskite saugumo meniu.",
     "description": "localStorage password warning."

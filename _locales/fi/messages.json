@@ -289,6 +289,9 @@
     "message": "Syötä oikea salasana tuodaksesi varmuuskopiot.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Organisaatiosi edellyttää salasanaa. Aseta salasana laajennuksen valikosta ennen kuin lisäät tai tuot tilejä."
+  },
   "local_passphrase_warning": {
     "message": "Salasanasi on tallennettu paikallisesti. Vaihda se suojausvalikosta välittömästi.",
     "description": "localStorage password warning."

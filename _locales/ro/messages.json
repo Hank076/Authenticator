@@ -289,6 +289,9 @@
     "message": "Trebuie să folosești parola corectă ca să imporți copiile de siguranță.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Organizația dvs. solicită o parolă. Setați o parolă din meniul extensiei înainte de a adăuga sau importa conturi."
+  },
   "local_passphrase_warning": {
     "message": "Parola ta este stocată în browser, te rog să o schimbi imediat din meniul de securitate.",
     "description": "localStorage password warning."

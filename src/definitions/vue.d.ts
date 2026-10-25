@@ -11,6 +11,7 @@ declare module "@vue/runtime-core" {
     // Only in Import
     $entries: OTPEntryInterface[];
     $encryption: EncryptionInterface;
+    $passwordRequired: boolean;
     // In all
     i18n: { [key: string]: string };
   }

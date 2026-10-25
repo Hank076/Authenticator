@@ -289,6 +289,9 @@
     "message": "您必须提供正确的密码才能导入备份。",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "您的组织要求设置密码。添加或导入账户前，请先在扩展菜单中设置密码。"
+  },
   "local_passphrase_warning": {
     "message": "您的密码保存在了本地，请立即通过安全菜单更改密码。",
     "description": "localStorage password warning."

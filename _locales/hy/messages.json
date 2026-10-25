@@ -289,6 +289,9 @@
     "message": "Կրկնօրինակումներ ներմուծելու համար անհրաժեշտ է մուտքագրել ճիշտ գաղտնաբառը։",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Ձեր կազմակերպությունը պահանջում է գաղտնաբառ։ Հաշիվներ ավելացնելուց կամ ներմուծելուց առաջ ընդլայնման ցանկում սահմանեք գաղտնաբառ։"
+  },
   "local_passphrase_warning": {
     "message": "Ձեր գաղտնաբառը պահվում է լոկալ հիշողության մեջ։ Խնդրում ենք անմիջապես փոխել այն անվտանգության ընտրացանկից։",
     "description": "localStorage password warning."

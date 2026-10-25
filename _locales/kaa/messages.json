@@ -289,6 +289,9 @@
     "message": "Qosımsha nusqalardı import qılıw ushın durıs parol kirgiziwińiz kerek.",
     "description": "Error password warning when import backups."
   },
+  "import_requires_password": {
+    "message": "Shólkemińiz paroldi talap etedi. Akkauntlardı qosıwdan yamasa import qılıwdan aldın keńeytpe menyusinde parol ornatıń."
+  },
   "local_passphrase_warning": {
     "message": "Sizdiń parolińiz lokal sıpatında saqlanadı, iltimás onı tezde qáwipsizlik menyusıda ózgertiń.",
     "description": "localStorage password warning."
