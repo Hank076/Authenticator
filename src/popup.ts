@@ -19,6 +19,7 @@ import { Dropbox } from "./models/backup";
 import { Encryption } from "./models/encryption";
 import { syncTimeWithGoogle } from "./syncTime";
 import { StorageLocation, UserSettings } from "./models/settings";
+import { reloadOnLock } from "./lock-watch";
 
 async function migrateLocalStorageToBrowserStorage() {
   if (localStorage.length > 0) {
@@ -30,6 +31,7 @@ async function migrateLocalStorageToBrowserStorage() {
 }
 
 async function init() {
+  reloadOnLock();
   await migrateLocalStorageToBrowserStorage();
   await UserSettings.updateItems();
 

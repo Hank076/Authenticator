@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import {
   getMatchedEntries,
   cloudBackupAllowed,
+  isSessionLockChange,
   shouldApplySearchFilter,
 } from "../utils";
 import * as sinon from "sinon";
@@ -144,6 +145,61 @@ describe("shouldApplySearchFilter", () => {
 
   it("does not apply text filtering when search is inactive and empty", () => {
     expect(shouldApplySearchFilter(false, "")).to.equal(false);
+  });
+});
+
+// Open popup / import pages reload when this is true, so the secrets they
+// decrypted while unlocked don't outlive a lock.
+describe("isSessionLockChange", () => {
+  it("detects the cached passphrase being cleared", () => {
+    expect(
+      isSessionLockChange(
+        { cachedPassphrase: { oldValue: "pw", newValue: null } },
+        "session",
+      ),
+    ).to.equal(true);
+    expect(
+      isSessionLockChange({ cachedPassphrase: { oldValue: "pw" } }, "session"),
+    ).to.equal(true);
+  });
+
+  it("ignores unlocking and changing the passphrase", () => {
+    expect(
+      isSessionLockChange(
+        { cachedPassphrase: { oldValue: null, newValue: "pw" } },
+        "session",
+      ),
+    ).to.equal(false);
+    expect(
+      isSessionLockChange(
+        { cachedPassphrase: { oldValue: "old", newValue: "new" } },
+        "session",
+      ),
+    ).to.equal(false);
+  });
+
+  it("ignores a lock while already locked", () => {
+    expect(
+      isSessionLockChange(
+        { cachedPassphrase: { oldValue: null, newValue: null } },
+        "session",
+      ),
+    ).to.equal(false);
+  });
+
+  it("ignores other keys and storage areas", () => {
+    expect(
+      isSessionLockChange(
+        { captureTabId: { oldValue: 1, newValue: undefined } },
+        "session",
+      ),
+    ).to.equal(false);
+    expect(
+      isSessionLockChange(
+        { cachedPassphrase: { oldValue: "pw", newValue: null } },
+        "local",
+      ),
+    ).to.equal(false);
   });
 });
 

@@ -205,6 +205,22 @@ export function cloudBackupAllowed(encryption?: EncryptionInterface): boolean {
   return Boolean(encryption && encryption.getEncryptionStatus());
 }
 
+// True when a storage change clears the cached passphrase: the background
+// sets it to null on manual lock, autolock and "delete everything". Open
+// extension pages use this to drop the secrets they decrypted while unlocked.
+export function isSessionLockChange(
+  changes: { [key: string]: chrome.storage.StorageChange },
+  areaName: string,
+): boolean {
+  const change = changes.cachedPassphrase;
+  return (
+    areaName === "session" &&
+    change !== undefined &&
+    Boolean(change.oldValue) &&
+    !change.newValue
+  );
+}
+
 export async function getCurrentTab() {
   const currentWindow = await chrome.windows.getCurrent();
   const queryOptions = { active: true, windowId: currentWindow.id };

@@ -7,8 +7,10 @@ import { Encryption, decryptString } from "./models/encryption";
 import { EntryStorage } from "./models/storage";
 import { getOTPAuthPerLineFromOPTAuthMigration } from "./models/migration";
 import { argonHash, argonVerify } from "./models/password";
+import { reloadOnLock } from "./lock-watch";
 
 async function init() {
+  reloadOnLock();
   try {
     const app = createApp(ImportView);
     // i18n
