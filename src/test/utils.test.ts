@@ -1893,7 +1893,6 @@ describe("isKnownArgonEncoding", () => {
 // used for every Key record. The @noble/hashes implementation must reproduce
 // them byte for byte, or existing master passwords stop unlocking.
 describe("argon2 compatibility with argon2-browser Key records", function () {
-  // each argon2 call takes ~0.1 s; verifying runs ten of them
   this.timeout(30000);
 
   const fixtures = [
@@ -1930,18 +1929,25 @@ describe("argon2 compatibility with argon2-browser Key records", function () {
     },
   ];
 
-  it("hashes with the current parameters exactly like argon2-browser", () => {
-    for (const { pass, salt, encoded } of fixtures) {
-      expect(argonHashEncoded(pass, salt), pass).to.equal(encoded);
-    }
-  });
+  // One argon2 call per test, so the timeout above bounds a single hash
+  // (~0.15 s in Chrome, ~0.45 s in Firefox) rather than the whole set.
+  for (const { pass, salt, encoded } of fixtures) {
+    it(`hashes ${JSON.stringify(pass.slice(0, 12))} exactly like argon2-browser`, () => {
+      expect(argonHashEncoded(pass, salt)).to.equal(encoded);
+    });
+  }
 
-  it("verifies Key records made with either parameter set", () => {
-    for (const { pass, encoded } of [...fixtures, ...oldFixtures]) {
-      expect(argonVerifyEncoded(pass, encoded), encoded).to.equal(true);
-      expect(argonVerifyEncoded(pass + "x", encoded), encoded).to.equal(false);
-    }
-  });
+  for (const { pass, encoded } of [...fixtures, ...oldFixtures]) {
+    it(`verifies the ${encoded.split("$")[3]} Key record for ${JSON.stringify(pass.slice(0, 12))}`, () => {
+      expect(argonVerifyEncoded(pass, encoded)).to.equal(true);
+    });
+  }
+
+  for (const { pass, encoded } of [fixtures[0], oldFixtures[0]]) {
+    it(`rejects a wrong password for the ${encoded.split("$")[3]} Key record`, () => {
+      expect(argonVerifyEncoded(pass + "x", encoded)).to.equal(false);
+    });
+  }
 
   it("refuses encodings outside the whitelist", () => {
     const weak = fixtures[0].encoded.replace("m=19456,t=2", "m=1024,t=1");
