@@ -1,6 +1,7 @@
 import { KeyUtilities } from "./key-utilities";
 import { UserSettings } from "./settings";
 import { EntryStorage } from "./storage";
+import { isGcmCiphertext } from "./encryption";
 
 export enum OTPType {
   totp = 1,
@@ -82,6 +83,9 @@ export class OTPEntry implements OTPEntryInterface {
   pinned: boolean;
   encryption?: EncryptionInterface;
   encData?: string;
+  // Set when applyEncryption decrypted AES-CBC data (stored before the
+  // AES-GCM switch); the unlock flow then rewrites the entry as AES-GCM.
+  legacyEncData?: boolean;
   encSecret?: string;
   keyId?: string;
   code = "••••••";
@@ -267,6 +271,7 @@ export class OTPEntry implements OTPEntryInterface {
     }
 
     this.encryption = encryption;
+    this.legacyEncData = !isGcmCiphertext(this.encData || "");
     this.encData = "";
   }
 

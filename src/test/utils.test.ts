@@ -1788,6 +1788,60 @@ describe("storage area switch and log clearing", () => {
   });
 });
 
+// EncOTPStorage written before the AES-GCM switch holds AES-CBC data. The
+// fixture was produced by `openssl enc -aes-256-cbc -md md5 -salt`, the same
+// framing crypto-js used. Decrypting it marks the entry for an AES-GCM rewrite.
+describe("OTPEntry.applyEncryption flags AES-CBC data for upgrade", () => {
+  const password = "dummy-salted-hash";
+  const hash = "33333333-4444-4555-8666-777777777777";
+  const cbcData =
+    "U2FsdGVkX1+b7WwPnJEG96zDDNHaJl9c3NV7dmkdBsjh2qqltWMfLDkIL+/BsE15xuLaEC0IXArQkOmDCJPNBXOO13qRhB3OxCLmo5nOdvfqZmDx+74bP8YWfT//FUd+ra8UFAV3lAh5bPIlfnHZ0eooM8UWoxadrz70Ui5e2gfRi/Pu4TmvfTkv7Sq8f5hsIhJBLjqhPONnDZISED4qFFd6ozOzG4SZGWFZgKmjHKQR63t3C81FALlTLOmrS90J59mo6ybRYFsldzArBcswKQLA/AWTzzM0+r7qoBVGQECE2e3zkqDQm3qtlGwp7N11";
+
+  function entryWith(encData: string) {
+    return new OTPEntry({
+      encrypted: true,
+      keyId: "cbc-key-id",
+      encData,
+      hash,
+      index: 0,
+    });
+  }
+
+  it("decrypts AES-CBC data and marks it for rewrite", async () => {
+    const entry = entryWith(cbcData);
+    await entry.applyEncryption(new Encryption(password, "cbc-key-id"));
+    expect(entry.secret).to.equal("JBSWY3DPEHPK3PXP");
+    expect(entry.issuer).to.equal("CbcEra");
+    expect(entry.legacyEncData).to.equal(true);
+  });
+
+  it("leaves AES-GCM data unmarked", async () => {
+    const encryption = new Encryption(password, "cbc-key-id");
+    const gcmData = await encryption.getEncryptedString(
+      JSON.stringify({
+        dataType: "OTPStorage",
+        hash,
+        secret: "JBSWY3DPEHPK3PXP",
+        type: "totp",
+        encrypted: true,
+        keyId: "cbc-key-id",
+        index: 0,
+      }),
+    );
+    const entry = entryWith(gcmData);
+    await entry.applyEncryption(encryption);
+    expect(entry.secret).to.equal("JBSWY3DPEHPK3PXP");
+    expect(entry.legacyEncData).to.equal(false);
+  });
+
+  it("keeps an undecryptable entry unmarked", async () => {
+    const entry = entryWith(cbcData);
+    await entry.applyEncryption(new Encryption("wrong-password", "cbc-key-id"));
+    expect(entry.secret).to.equal(null);
+    expect(entry.legacyEncData).to.not.equal(true);
+  });
+});
+
 // Encrypting without a key must fail rather than store plaintext.
 describe("Encryption.getEncryptedString without a key", () => {
   it("throws instead of returning plaintext", async () => {

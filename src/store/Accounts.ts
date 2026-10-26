@@ -491,7 +491,10 @@ export const useAccountsStore = defineStore("accounts", () => {
       if (!entry.secret) {
         continue;
       }
-      if (entry.encryption?.getEncryptionKeyId() !== defaultEncryption.value) {
+      if (
+        entry.encryption?.getEncryptionKeyId() !== defaultEncryption.value ||
+        entry.legacyEncData
+      ) {
         applyEntryEncryption({
           entry,
           encryption: defaultEncryptionInstance,

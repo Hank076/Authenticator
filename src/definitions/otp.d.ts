@@ -14,6 +14,7 @@ interface OTPEntryInterface {
   pinned: boolean;
   encData?: string;
   keyId?: string;
+  legacyEncData?: boolean;
   encryption?: EncryptionInterface;
   create(): Promise<void>;
   update(): Promise<void>;
