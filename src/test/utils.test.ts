@@ -11,6 +11,7 @@ import * as sinon from "sinon";
 import {
   BrowserStorage,
   EntryStorage,
+  EntryWriteRefusedError,
   ManagedStorage,
 } from "../models/storage";
 import { UserSettings } from "../models/settings";
@@ -664,7 +665,10 @@ describe("EntryStorage enforces the enforcePassword policy on writes", () => {
     } catch (e) {
       error = e;
     }
-    expect(error).to.be.instanceOf(Error);
+    expect(error).to.be.instanceOf(EntryWriteRefusedError);
+    expect((error as EntryWriteRefusedError).messageKey).to.equal(
+      "import_requires_password",
+    );
     const stored = (await EntryStorage.get()).find((e) => e.hash === hash);
     expect(stored, "nothing may be written").to.equal(undefined);
   });
@@ -832,6 +836,20 @@ describe("EntryStorage.import never overwrites a Key record", () => {
         "99999999-8888-4777-8666-555555555555",
       );
     });
+
+    // An interrupted v2 -> v3 migration leaves `key` and a v3 Key together;
+    // getKeys() then reports only the v2 key.
+    it("re-keys an entry whose inner hash is a v3 Key id next to it", async () => {
+      await BrowserStorage.set({ [keyId]: keyRecord });
+      await EntryStorage.import(new Encryption(password, keyId), {
+        "99999999-8888-4777-8666-555555555555": payload(keyId),
+      });
+      expect(await BrowserStorage.getKeyRecordIds()).to.deep.equal([keyId]);
+      await expectSingleEntryUnderFreshUuid(
+        keyId,
+        "99999999-8888-4777-8666-555555555555",
+      );
+    });
   });
 });
 
@@ -888,7 +906,10 @@ describe("EntryStorage refuses plaintext writes while the master password is loc
     } catch (e) {
       error = e;
     }
-    expect(error).to.be.instanceOf(Error);
+    expect(error).to.be.instanceOf(EntryWriteRefusedError);
+    expect((error as EntryWriteRefusedError).messageKey).to.equal(
+      "import_error_password",
+    );
   }
 
   afterEach(async () => {

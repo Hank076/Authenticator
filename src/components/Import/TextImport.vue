@@ -30,7 +30,7 @@ import {
   getEntryDataFromOTPAuthPerLine,
 } from "../../import";
 import { legacyDecryptToHex } from "../../models/legacy-decrypt";
-import { EntryStorage } from "../../models/storage";
+import { EntryStorage, EntryWriteRefusedError } from "../../models/storage";
 import { Encryption } from "../../models/encryption";
 
 export default defineComponent({
@@ -102,10 +102,18 @@ export default defineComponent({
       }
 
       if (Object.keys(decryptedbackupData).length) {
-        await EntryStorage.import(
-          this.$encryption as Encryption,
-          decryptedbackupData,
-        );
+        try {
+          await EntryStorage.import(
+            this.$encryption as Encryption,
+            decryptedbackupData,
+          );
+        } catch (error) {
+          if (!(error instanceof EntryWriteRefusedError)) {
+            throw error;
+          }
+          alert(this.i18n[error.messageKey]);
+          return;
+        }
         if (failedCount === 0) {
           alert(this.i18n.updateSuccess);
         } else if (succeededCount) {

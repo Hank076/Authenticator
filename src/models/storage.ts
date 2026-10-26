@@ -2,6 +2,18 @@ import { Encryption } from "./encryption";
 import { OTPEntry, OTPType, OTPAlgorithm, CodeState } from "./otp";
 import { StorageLocation, UserSettings } from "./settings";
 import { DataType } from "./otp";
+// Thrown when EntryStorage refuses to add entries. messageKey is the i18n
+// message the import page shows for the refusal.
+export class EntryWriteRefusedError extends Error {
+  constructor(
+    message: string,
+    readonly messageKey: "import_requires_password" | "import_error_password",
+  ) {
+    super(message);
+    this.name = "EntryWriteRefusedError";
+  }
+}
+
 export class BrowserStorage {
   private static async getStorageLocation(): Promise<StorageLocation> {
     await UserSettings.updateItems();
@@ -93,6 +105,26 @@ export class BrowserStorage {
     removeOtherData(items);
 
     return items;
+  }
+
+  // Storage keys of every record get() hides as a Key, whether or not it is
+  // well-formed and whether or not a v2 `key` sits next to it (an interrupted
+  // v2 -> v3 migration leaves both).
+  static async getKeyRecordIds(): Promise<string[]> {
+    const storageLocation = await this.getStorageLocation();
+    const data = (await chrome.storage[storageLocation].get()) as Record<
+      string,
+      unknown
+    >;
+    return Object.keys(data).filter((id) => {
+      const item = data[id];
+      return (
+        item !== null &&
+        typeof item === "object" &&
+        "dataType" in item &&
+        item.dataType === "Key"
+      );
+    });
   }
 
   static async getKeys(): Promise<OldKey | Key[]> {
@@ -609,8 +641,9 @@ export class EntryStorage {
 
   private static async assertPasswordPolicySatisfied() {
     if (await this.isPasswordRequiredByPolicy()) {
-      throw new Error(
+      throw new EntryWriteRefusedError(
         "enforcePassword policy requires a password before adding accounts",
+        "import_requires_password",
       );
     }
   }
@@ -630,7 +663,10 @@ export class EntryStorage {
     encryption: EncryptionInterface | undefined,
   ) {
     if (await this.requiresUnlock(encryption)) {
-      throw new Error("Unlock with the master password before adding accounts");
+      throw new EntryWriteRefusedError(
+        "Unlock with the master password before adding accounts",
+        "import_error_password",
+      );
     }
   }
 
@@ -639,11 +675,8 @@ export class EntryStorage {
   // silently replace the record - for a Key, the master password's salt.
   private static async getReservedStorageKeys() {
     const reserved = new Set(["key", "UserSettings", "LocalStorage"]);
-    const keys = await BrowserStorage.getKeys();
-    if (!isOldKey(keys)) {
-      for (const key of keys) {
-        reserved.add(key.id);
-      }
+    for (const id of await BrowserStorage.getKeyRecordIds()) {
+      reserved.add(id);
     }
     return reserved;
   }
