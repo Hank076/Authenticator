@@ -1569,6 +1569,19 @@ describe("EntryStorage.getExport plaintext export carries no keyId", () => {
   });
 });
 
+// Encrypting without a key must fail rather than store plaintext.
+describe("Encryption.getEncryptedString without a key", () => {
+  it("throws instead of returning plaintext", async () => {
+    let error: unknown;
+    try {
+      await new Encryption("", "").getEncryptedString("JBSWY3DPEHPK3PXP");
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+  });
+});
+
 // Only the parameter sets this extension has used may unlock; a Key record
 // synced in with weaker parameters or argon2d is refused before verifying.
 describe("isKnownArgonEncoding", () => {

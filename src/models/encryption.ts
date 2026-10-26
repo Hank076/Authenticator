@@ -89,8 +89,10 @@ export class Encryption implements EncryptionInterface {
   }
 
   async getEncryptedString(data: string): Promise<string> {
+    // Never fall back to plaintext: a caller that reaches here without a key
+    // would store the secret unencrypted.
     if (!this.password) {
-      return data;
+      throw new Error("Cannot encrypt without a key");
     }
     const key = await this.getKey();
     const iv = crypto.getRandomValues(new Uint8Array(12));
