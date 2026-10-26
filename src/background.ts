@@ -29,6 +29,15 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
 
+  // Content scripts run inside web pages and only ever send getCapture. Every
+  // other action (cache passphrase, lock, cloud backup, ...) must come from an
+  // extension page, so a compromised content script can't drive them.
+  const fromExtensionPage =
+    sender.url?.startsWith(chrome.runtime.getURL("")) === true;
+  if (message.action !== "getCapture" && !fromExtensionPage) {
+    return;
+  }
+
   // None of these handlers send a response, so do the async work fire-and-forget
   // and DON'T return true. Returning true kept the message channel open waiting
   // for a sendResponse that never came, so the sender's sendMessage promise
