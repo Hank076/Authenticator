@@ -300,7 +300,9 @@ export class EntryStorage {
       storageItem.algorithm = OTPAlgorithm[entry.algorithm];
     }
 
-    if (!legacyCiphertext && encryption?.getEncryptionKeyId()) {
+    // A plaintext export must not carry keyId: importers treat keyId as
+    // "encrypted, ask for the password".
+    if (!unencrypted && !legacyCiphertext && encryption?.getEncryptionKeyId()) {
       storageItem.keyId = encryption.getEncryptionKeyId();
     }
 

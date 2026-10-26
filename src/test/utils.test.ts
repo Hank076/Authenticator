@@ -1339,6 +1339,42 @@ describe("EntryStorage keeps undecryptable legacy ciphertext when writing back",
   });
 });
 
+// A plaintext export with keyId makes FileImport treat the entry as encrypted
+// and ask for a password the plaintext file does not need.
+describe("EntryStorage.getExport plaintext export carries no keyId", () => {
+  it("omits keyId for unencrypted exports and keeps it inside encrypted ones", async () => {
+    const encryption = new Encryption(
+      "plaintext-export-test-password-hash",
+      "plaintext-export-test-key-id",
+    );
+    const entry = new OTPEntry(
+      {
+        type: OTPType.totp,
+        index: 0,
+        issuer: "PlainExport",
+        account: "user",
+        encrypted: false,
+        secret: "JBSWY3DPEHPK3PXP",
+      },
+      encryption,
+    );
+
+    const plain = (await EntryStorage.getExport([entry], false)) as {
+      [hash: string]: RawOTPStorage;
+    };
+    expect(plain[entry.hash].secret).to.equal("JBSWY3DPEHPK3PXP");
+    expect(plain[entry.hash].keyId).to.equal(undefined);
+
+    const encrypted = (await EntryStorage.getExport([entry], true)) as {
+      [hash: string]: EncOTPStorage;
+    };
+    expect(encrypted[entry.hash].dataType).to.equal("EncOTPStorage");
+    expect(encrypted[entry.hash].keyId).to.equal(
+      "plaintext-export-test-key-id",
+    );
+  });
+});
+
 // --- Phase 0 of the crypto-js removal (docs/plans/crypto-js-migration-plan.md):
 // fixture-first baseline before touching any implementation. These ciphertexts
 // were generated once with the current crypto-js (CryptoJS.AES.encrypt(...).
