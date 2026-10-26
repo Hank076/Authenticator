@@ -201,6 +201,15 @@ function isKey(key: unknown): key is Key {
   );
 }
 
+// Unlocked and tied to a Key record, i.e. able to produce an EncOTPStorage.
+function canEncryptWith(
+  encryption: EncryptionInterface | undefined,
+): encryption is EncryptionInterface {
+  return Boolean(
+    encryption?.getEncryptionStatus() && encryption.getEncryptionKeyId(),
+  );
+}
+
 // UUIDv4 (hyphens optional), the shape of every entry storage key.
 const ENTRY_HASH_PATTERN =
   /^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}$/;
@@ -210,6 +219,7 @@ export class EntryStorage {
     entry: OTPEntry,
     unencrypted?: boolean,
     forBackup?: boolean,
+    encryption: EncryptionInterface | undefined = entry.encryption,
   ): Promise<OTPStorage> {
     let secret: string;
     if (!entry.secret && entry.encData && entry.keyId) {
@@ -226,7 +236,7 @@ export class EntryStorage {
       console.warn("Invalid entry", entry);
     }
 
-    let encrypted = entry.encryption?.getEncryptionStatus() || false;
+    let encrypted = encryption?.getEncryptionStatus() || false;
 
     if (unencrypted && entry.secret) {
       secret = entry.secret;
@@ -283,25 +293,20 @@ export class EntryStorage {
       storageItem.algorithm = OTPAlgorithm[entry.algorithm];
     }
 
-    if (entry.encryption?.getEncryptionKeyId()) {
-      storageItem.keyId = entry.encryption.getEncryptionKeyId();
+    if (encryption?.getEncryptionKeyId()) {
+      storageItem.keyId = encryption.getEncryptionKeyId();
     }
 
     storageItem.dataType = DataType.OTPStorage;
 
-    if (
-      !unencrypted &&
-      encrypted &&
-      entry.encryption?.getEncryptionStatus() &&
-      entry.encryption.getEncryptionKeyId()
-    ) {
-      const encData = await entry.encryption.getEncryptedString(
+    if (!unencrypted && encrypted && canEncryptWith(encryption)) {
+      const encData = await encryption.getEncryptedString(
         JSON.stringify(storageItem),
       );
       return {
         dataType: DataType.EncOTPStorage,
         data: encData,
-        keyId: entry.encryption.getEncryptionKeyId(),
+        keyId: encryption.getEncryptionKeyId(),
         index: entry.index,
       };
     } else if (encrypted) {
@@ -309,6 +314,32 @@ export class EntryStorage {
     }
 
     return storageItem;
+  }
+
+  // Wraps a plaintext storage item the way getOTPStorageFromEntry does, so
+  // applyEncryption and backup restore accept it. The inner hash must match
+  // the storage key it is written under.
+  private static async encryptStorageItem(
+    item: RawOTPStorage,
+    encryption: EncryptionInterface,
+  ): Promise<EncOTPStorage | null> {
+    if (!canEncryptWith(encryption)) {
+      return null;
+    }
+
+    const keyId = encryption.getEncryptionKeyId();
+    const storageItem: RawOTPStorage = {
+      ...item,
+      encrypted: true,
+      keyId,
+      dataType: DataType.OTPStorage,
+    };
+    return {
+      dataType: DataType.EncOTPStorage,
+      data: await encryption.getEncryptedString(JSON.stringify(storageItem)),
+      keyId,
+      index: item.index,
+    };
   }
 
   private static ensureUniqueIndex(data: { [hash: string]: OTPStorage }) {
@@ -384,7 +415,11 @@ export class EntryStorage {
     }
   }
 
-  static async getExport(data: OTPEntryInterface[], encrypted?: boolean) {
+  static async getExport(
+    data: OTPEntryInterface[],
+    encrypted?: boolean,
+    encryption?: EncryptionInterface,
+  ) {
     try {
       const exportData: { [hash: string]: OTPStorage } = {};
       for (const entry of data) {
@@ -393,10 +428,23 @@ export class EntryStorage {
           continue;
         }
 
+        let entryEncryption = entry.encryption;
+        if (encrypted && !canEncryptWith(entryEncryption)) {
+          // Entries stored as plaintext (synced in, or written before the
+          // password existed) have no encryption of their own. An encrypted
+          // export must not carry them as plaintext: use the given key, or
+          // leave them out.
+          if (!canEncryptWith(encryption)) {
+            continue;
+          }
+          entryEncryption = encryption;
+        }
+
         exportData[entry.hash] = await this.getOTPStorageFromEntry(
           entry,
           !encrypted,
           true,
+          entryEncryption,
         );
       }
       return exportData;
@@ -509,6 +557,20 @@ export class EntryStorage {
           _data[entry.hash] = entry;
           delete _data[hash];
         }
+      } else if (entry.encrypted !== true) {
+        // A plaintext entry (synced in, or written before the password
+        // existed) must not ride along in an encrypted backup as plaintext:
+        // encrypt it with the current key, or leave it out. Legacy entries
+        // (encrypted: true) already hold ciphertext and stay as they are.
+        const encEntry = await this.encryptStorageItem(
+          { ...entry, hash },
+          encryption,
+        );
+        if (encEntry) {
+          _data[hash] = encEntry;
+        } else {
+          delete _data[hash];
+        }
       }
     }
     if (encryption.getEncryptionStatus()) {
@@ -540,6 +602,25 @@ export class EntryStorage {
     }
   }
 
+  // Once a master password exists every secret must be stored encrypted, but
+  // getOTPStorageFromEntry writes plaintext for a locked Encryption (no cached
+  // key). Same rule as background getTotp's errorenc check.
+  static async requiresUnlock(
+    encryption: EncryptionInterface | undefined,
+  ): Promise<boolean> {
+    return (
+      (await this.hasEncryptionKey()) && !encryption?.getEncryptionStatus()
+    );
+  }
+
+  private static async assertUnlockedIfPasswordSet(
+    encryption: EncryptionInterface | undefined,
+  ) {
+    if (await this.requiresUnlock(encryption)) {
+      throw new Error("Unlock with the master password before adding accounts");
+    }
+  }
+
   // Storage keys that hold records other than entries. BrowserStorage.get()
   // filters these out, so an imported entry written under one of them would
   // silently replace the record - for a Key, the master password's salt.
@@ -559,6 +640,7 @@ export class EntryStorage {
     data: { [hash: string]: RawOTPStorage },
   ) {
     await this.assertPasswordPolicySatisfied();
+    await this.assertUnlockedIfPasswordSet(encryption);
     let _data = await BrowserStorage.get();
     const reservedKeys = await this.getReservedStorageKeys();
     for (const hash of Object.keys(data)) {
@@ -683,6 +765,7 @@ export class EntryStorage {
 
   static async add(entry: OTPEntry) {
     await this.assertPasswordPolicySatisfied();
+    await this.assertUnlockedIfPasswordSet(entry.encryption);
     await BrowserStorage.set({
       [entry.hash]: await this.getOTPStorageFromEntry(entry),
     });

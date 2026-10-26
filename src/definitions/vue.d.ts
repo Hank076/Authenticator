@@ -15,6 +15,7 @@ declare module "vue" {
     $entries: OTPEntryInterface[];
     $encryption: EncryptionInterface;
     $passwordRequired: boolean;
+    $locked: boolean;
     // In all
     i18n: { [key: string]: string };
   }

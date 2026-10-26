@@ -114,7 +114,7 @@ export default defineComponent({
     return {
       importType,
       passwordRequired: this.$passwordRequired,
-      shouldShowPassphrase: shouldShowPassphrase(this.$entries),
+      shouldShowPassphrase: this.$locked || shouldShowPassphrase(this.$entries),
     };
   },
   components: {

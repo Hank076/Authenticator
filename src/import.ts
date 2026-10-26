@@ -37,6 +37,10 @@ async function init() {
     app.config.globalProperties.$encryption = encryption;
     app.config.globalProperties.$passwordRequired =
       await EntryStorage.isPasswordRequiredByPolicy();
+    // A master password exists but this page has no cached key; importing
+    // now would store the secrets as plaintext.
+    app.config.globalProperties.$locked =
+      await EntryStorage.requiresUnlock(encryption);
 
     const instance = app.mount("#import-app");
 

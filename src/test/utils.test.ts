@@ -779,6 +779,244 @@ describe("EntryStorage.import never overwrites a Key record", () => {
   });
 });
 
+// With a master password set, a locked Encryption (no cached key, e.g. an
+// import page opened after autolock) made getOTPStorageFromEntry store the
+// secret as plaintext. The write paths must refuse instead, while users
+// without a password keep importing and adding as before.
+describe("EntryStorage refuses plaintext writes while the master password is locked", () => {
+  const keyId = "33333333-4444-4555-8666-777777777777";
+  const keyRecord: Key = {
+    dataType: "Key",
+    id: keyId,
+    salt: "dummy-salt",
+    hash: "dummy-argon2-hash",
+    version: 3,
+  };
+  const hash = "44444444-5555-4666-8777-888888888888";
+  const raw: RawOTPStorage = {
+    hash,
+    index: 0,
+    type: "totp",
+    secret: "JBSWY3DPEHPK3PXP",
+    issuer: "LockTest",
+    account: "user",
+    encrypted: false,
+  };
+
+  function newEntry(encryption?: Encryption) {
+    return new OTPEntry(
+      {
+        type: OTPType.totp,
+        index: 0,
+        issuer: "LockTest",
+        account: "user",
+        encrypted: false,
+        secret: raw.secret,
+        hash,
+      },
+      encryption,
+    );
+  }
+
+  async function snapshot() {
+    return {
+      entries: await BrowserStorage.get(),
+      keys: await BrowserStorage.getKeys(),
+    };
+  }
+
+  async function expectRejected(write: () => Promise<void>) {
+    let error: unknown;
+    try {
+      await write();
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+  }
+
+  afterEach(async () => {
+    await BrowserStorage.remove([keyId, hash]);
+  });
+
+  describe("with a Key record", () => {
+    beforeEach(async () => {
+      await BrowserStorage.set({ [keyId]: keyRecord });
+    });
+
+    it("refuses to import and leaves storage unchanged", async () => {
+      const before = await snapshot();
+      await expectRejected(() =>
+        EntryStorage.import(new Encryption("", ""), { [hash]: { ...raw } }),
+      );
+      expect(await snapshot()).to.deep.equal(before);
+    });
+
+    it("refuses to add with a locked or missing encryption", async () => {
+      const before = await snapshot();
+      await expectRejected(() =>
+        EntryStorage.add(newEntry(new Encryption("", ""))),
+      );
+      await expectRejected(() => EntryStorage.add(newEntry()));
+      expect(await snapshot()).to.deep.equal(before);
+    });
+
+    it("reports that the import page must stay locked", async () => {
+      expect(
+        await EntryStorage.requiresUnlock(new Encryption("", "")),
+      ).to.equal(true);
+      expect(
+        await EntryStorage.requiresUnlock(new Encryption("dummy-hash", keyId)),
+      ).to.equal(false);
+    });
+  });
+
+  describe("without a Key record", () => {
+    it("imports a plaintext entry as before", async () => {
+      expect(await EntryStorage.hasEncryptionKey()).to.equal(false);
+      expect(
+        await EntryStorage.requiresUnlock(new Encryption("", "")),
+      ).to.equal(false);
+
+      await EntryStorage.import(new Encryption("", ""), { [hash]: { ...raw } });
+      const stored = (await BrowserStorage.get())[hash] as RawOTPStorage;
+      expect(stored.secret).to.equal(raw.secret);
+      expect(stored.encrypted).to.equal(false);
+    });
+
+    it("adds a plaintext entry as before", async () => {
+      await EntryStorage.add(newEntry());
+      const stored = (await BrowserStorage.get())[hash] as RawOTPStorage;
+      expect(stored.secret).to.equal(raw.secret);
+    });
+  });
+});
+
+// Plaintext entries can sit next to a Key record (browser sync, or an import
+// page opened before the password existed). Encrypted exports used to copy
+// them verbatim, so a backup labelled "encrypted" carried plaintext secrets.
+describe("encrypted exports never carry plaintext secrets", () => {
+  const keyId = "55555555-6666-4777-8888-999999999999";
+  const keyRecord: Key = {
+    dataType: "Key",
+    id: keyId,
+    salt: "dummy-salt",
+    hash: "dummy-argon2-hash",
+    version: 3,
+  };
+  const password = "dummy-export-salted-hash";
+  const unlocked = new Encryption(password, keyId);
+  const plainHash = "66666666-7777-4888-9999-aaaaaaaaaaaa";
+  const legacyHash = "77777777-8888-4999-8aaa-bbbbbbbbbbbb";
+  const plainSecret = "JBSWY3DPEHPK3PXP";
+  const encSecret = "GEZDGNBVGY3TQOJQ";
+  const legacyCiphertext = "U2FsdGVkX1dummy-legacy-ciphertext";
+  let encHash: string;
+
+  async function decryptInner(item: OTPStorage) {
+    expect(item.dataType).to.equal("EncOTPStorage");
+    const encItem = item as EncOTPStorage;
+    expect(encItem.keyId).to.equal(keyId);
+    return JSON.parse((await decryptString(encItem.data, password)) || "");
+  }
+
+  beforeEach(async () => {
+    await BrowserStorage.set({ [keyId]: keyRecord });
+    const encEntry = new OTPEntry(
+      {
+        type: OTPType.totp,
+        index: 0,
+        issuer: "Encrypted",
+        account: "user",
+        encrypted: false,
+        secret: encSecret,
+      },
+      unlocked,
+    );
+    await EntryStorage.add(encEntry);
+    encHash = encEntry.hash;
+    await BrowserStorage.set({
+      [plainHash]: {
+        dataType: "OTPStorage",
+        encrypted: false,
+        hash: plainHash,
+        index: 1,
+        type: "totp",
+        secret: plainSecret,
+        issuer: "Plain",
+        host: "plain.test",
+      },
+      [legacyHash]: {
+        encrypted: true,
+        hash: legacyHash,
+        index: 2,
+        type: "totp",
+        secret: legacyCiphertext,
+      },
+    });
+  });
+
+  afterEach(async () => {
+    await BrowserStorage.remove([keyId, encHash, plainHash, legacyHash]);
+  });
+
+  it("backupGetExport(enc, true) encrypts plaintext entries and keeps ciphertext", async () => {
+    const storedEnc = (await BrowserStorage.get())[encHash];
+    const exported = (await EntryStorage.backupGetExport(unlocked, true)) as {
+      [hash: string]: OTPStorage | Key;
+    };
+
+    expect(JSON.stringify(exported)).to.not.include(plainSecret);
+    expect(JSON.stringify(exported)).to.not.include(encSecret);
+
+    const inner = await decryptInner(exported[plainHash] as OTPStorage);
+    expect(inner.dataType).to.equal("OTPStorage");
+    expect(inner.hash).to.equal(plainHash);
+    expect(inner.secret).to.equal(plainSecret);
+    expect(inner.issuer).to.equal("Plain::plain.test");
+
+    expect(exported[encHash]).to.deep.equal(storedEnc);
+    expect((exported[legacyHash] as RawOTPStorage).secret).to.equal(
+      legacyCiphertext,
+    );
+    expect(exported[keyId]).to.deep.equal(keyRecord);
+  });
+
+  it("backupGetExport(enc, true) drops plaintext entries it cannot encrypt", async () => {
+    const exported = (await EntryStorage.backupGetExport(
+      new Encryption("", ""),
+      true,
+    )) as { [hash: string]: OTPStorage };
+
+    expect(exported).to.not.have.property(plainHash);
+    expect(JSON.stringify(exported)).to.not.include(plainSecret);
+  });
+
+  it("getExport(data, true) encrypts entries that have no encryption of their own", async () => {
+    const plainEntry = (await EntryStorage.get()).find(
+      (e) => e.hash === plainHash,
+    ) as OTPEntryInterface;
+    expect(plainEntry.encryption).to.equal(undefined);
+
+    const exported = (await EntryStorage.getExport(
+      [plainEntry],
+      true,
+      unlocked,
+    )) as {
+      [hash: string]: OTPStorage;
+    };
+    const inner = await decryptInner(exported[plainHash]);
+    expect(inner.hash).to.equal(plainHash);
+    expect(inner.secret).to.equal(plainSecret);
+
+    expect(await EntryStorage.getExport([plainEntry], true)).to.deep.equal({});
+    const plainExport = (await EntryStorage.getExport([plainEntry])) as {
+      [hash: string]: RawOTPStorage;
+    };
+    expect(plainExport[plainHash].secret).to.equal(plainSecret);
+  });
+});
+
 // EntryStorage.import() used to run parseInt() on the type and algorithm
 // fields, but both are persisted as their enum *names* ("hotp", "SHA512"), so
 // parseInt returned NaN and the entry silently fell back to TOTP/SHA1. A

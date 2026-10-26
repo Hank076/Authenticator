@@ -43,8 +43,9 @@ async function getEntries() {
 async function getTypedExport(
   data: OTPEntryInterface[],
   encrypted?: boolean,
+  encryption?: EncryptionInterface,
 ): Promise<{ [hash: string]: OTPStorage }> {
-  return (await EntryStorage.getExport(data, encrypted)) as {
+  return (await EntryStorage.getExport(data, encrypted, encryption)) as {
     [hash: string]: OTPStorage;
   };
 }
@@ -73,6 +74,16 @@ export const useAccountsStore = defineStore("accounts", () => {
   const wrongPassword = ref(false);
   const initComplete = ref(false);
 
+  // Plaintext entries carry no encryption of their own; the encrypted export
+  // wraps them with the default key instead of leaking their secrets.
+  async function getEncryptedExport(data: OTPEntryInterface[]) {
+    return getTypedExport(
+      data,
+      true,
+      encryption.value.get(defaultEncryption.value),
+    );
+  }
+
   // Populates async state from storage; the caller must await this before the
   // popup mounts so components never observe the pre-init defaults above.
   async function init() {
@@ -96,7 +107,7 @@ export const useAccountsStore = defineStore("accounts", () => {
 
     siteName.value = await getSiteName();
     exportData.value = await getTypedExport(initialEntries);
-    exportEncData.value = await getTypedExport(initialEntries, true);
+    exportEncData.value = await getEncryptedExport(initialEntries);
     keys.value = await BrowserStorage.getKeys();
   }
 
@@ -285,7 +296,7 @@ export const useAccountsStore = defineStore("accounts", () => {
     removeEntry(hash);
     updateExport(await getTypedExport(entries.value));
     updateEncExport({
-      entries: await getTypedExport(entries.value, true),
+      entries: await getEncryptedExport(entries.value),
       keys: await BrowserStorage.getKeys(),
     });
   }
@@ -294,7 +305,7 @@ export const useAccountsStore = defineStore("accounts", () => {
     addEntry(entry);
     updateExport(await getTypedExport(entries.value));
     updateEncExport({
-      entries: await getTypedExport(entries.value, true),
+      entries: await getEncryptedExport(entries.value),
       keys: await BrowserStorage.getKeys(),
     });
   }
@@ -626,7 +637,7 @@ export const useAccountsStore = defineStore("accounts", () => {
     }
     updateExport(await getTypedExport(entries.value));
     updateEncExport({
-      entries: await getTypedExport(entries.value, true),
+      entries: await getEncryptedExport(entries.value),
       keys: await BrowserStorage.getKeys(),
     });
     setInitComplete();
