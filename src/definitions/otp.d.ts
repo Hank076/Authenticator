@@ -13,6 +13,7 @@ interface OTPEntryInterface {
   algorithm: number; // OTPAlgorithm
   pinned: boolean;
   encData?: string;
+  keyId?: string;
   encryption?: EncryptionInterface;
   create(): Promise<void>;
   update(): Promise<void>;

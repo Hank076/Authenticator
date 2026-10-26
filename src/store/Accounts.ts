@@ -384,6 +384,17 @@ export const useAccountsStore = defineStore("accounts", () => {
         }
       }
 
+      // Legacy (v1) entries can coexist with a v3 Key when an earlier
+      // migration was interrupted after the Key was stored. They are
+      // encrypted with the password itself, so offer it as the legacy key;
+      // entries it cannot decrypt stay untouched.
+      if (saltedHash) {
+        setEncryption({
+          keyId: LegacyEncryption,
+          encryption: new Encryption(password, LegacyEncryption),
+        });
+      }
+
       await updateEntries();
 
       if (!saltedHash) {
@@ -436,10 +447,10 @@ export const useAccountsStore = defineStore("accounts", () => {
           encryption: newEncryption,
         });
 
-        // if not uuidv4 regen
-        if (UUIDV4_REGEX.test(entry.hash)) {
-          regenEntryHash(entry);
+        // if not uuidv4 regen; remove the old record, not the new one
+        if (!UUIDV4_REGEX.test(entry.hash)) {
           toRemove.push(entry.hash);
+          regenEntryHash(entry);
         }
       }
 
@@ -468,6 +479,11 @@ export const useAccountsStore = defineStore("accounts", () => {
       throw new Error("defaultEncryption is empty, this should never happen!");
     }
     for (const entry of entries.value) {
+      // Entries no unlocked key could decrypt must keep their ciphertext;
+      // rewriting them here would store an empty secret.
+      if (!entry.secret) {
+        continue;
+      }
       if (entry.encryption?.getEncryptionKeyId() !== defaultEncryption.value) {
         applyEntryEncryption({
           entry,
@@ -525,12 +541,22 @@ export const useAccountsStore = defineStore("accounts", () => {
 
       const linkedKeys = new Set<string>();
       for (const entry of entries.value) {
+        // Entries the current password could not decrypt (another Key merged
+        // in by sync, or legacy ciphertext) keep their hash, ciphertext and
+        // Key: the hash is part of the encrypted payload and the Key holds the
+        // salt needed to decrypt it.
+        if (!entry.secret) {
+          if (entry.keyId) {
+            linkedKeys.add(entry.keyId);
+          }
+          continue;
+        }
         applyEntryEncryption({
           entry,
           encryption: new Encryption(saltedHash, key.id),
         });
         // if not uuidv4 regen
-        if (UUIDV4_REGEX.test(entry.hash)) {
+        if (!UUIDV4_REGEX.test(entry.hash)) {
           removeKeys.push(entry.hash);
           regenEntryHash(entry);
         }

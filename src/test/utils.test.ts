@@ -1299,6 +1299,46 @@ describe("useAdvisorStore init() parses a legacy JSON-string ignoreList", () => 
   });
 });
 
+// An interrupted v1/v2 -> v3 migration (or a sync from an older device) can
+// leave legacy ciphertext that no unlocked key decrypts. Writing such an entry
+// back must keep the ciphertext; it used to become { encrypted: false,
+// secret: "" }, permanently erasing the account.
+describe("EntryStorage keeps undecryptable legacy ciphertext when writing back", () => {
+  const hash = "77777777-6666-4555-8444-333333333333";
+  const legacySecret = "U2FsdGVkX1/Ca3NjxUzrBfM7IGOu/uI7vouAZsLrX5o=";
+
+  afterEach(async () => {
+    await BrowserStorage.remove(hash);
+  });
+
+  it("writes the legacy record back unchanged", async () => {
+    await BrowserStorage.set({
+      [hash]: {
+        encrypted: true,
+        hash,
+        index: 0,
+        type: "totp",
+        secret: legacySecret,
+        issuer: "LegacyBank",
+        account: "user",
+      },
+    });
+    const entry = (await EntryStorage.get()).find((e) => e.hash === hash);
+    expect(entry, "legacy entry should load").to.exist;
+    expect(entry?.secret).to.equal(null);
+
+    if (entry) {
+      await EntryStorage.set([entry]);
+    }
+
+    const stored = (await BrowserStorage.get())[hash] as RawOTPStorage;
+    expect(stored.encrypted).to.equal(true);
+    expect(stored.secret).to.equal(legacySecret);
+    expect(stored.issuer).to.equal("LegacyBank");
+    expect(stored.keyId).to.equal(undefined);
+  });
+});
+
 // --- Phase 0 of the crypto-js removal (docs/plans/crypto-js-migration-plan.md):
 // fixture-first baseline before touching any implementation. These ciphertexts
 // were generated once with the current crypto-js (CryptoJS.AES.encrypt(...).

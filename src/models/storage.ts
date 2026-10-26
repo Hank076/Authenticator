@@ -222,6 +222,9 @@ export class EntryStorage {
     encryption: EncryptionInterface | undefined = entry.encryption,
   ): Promise<OTPStorage> {
     let secret: string;
+    // Legacy (v1/v2) ciphertext the current keys could not decrypt. It must be
+    // written back verbatim: writing an empty secret would erase the account.
+    let legacyCiphertext = false;
     if (!entry.secret && entry.encData && entry.keyId) {
       return {
         dataType: DataType.EncOTPStorage,
@@ -231,12 +234,16 @@ export class EntryStorage {
       };
     } else if (entry.secret) {
       secret = entry.secret;
+    } else if (entry.encSecret) {
+      secret = entry.encSecret;
+      legacyCiphertext = true;
     } else {
       secret = "";
       console.warn("Invalid entry", entry);
     }
 
-    let encrypted = encryption?.getEncryptionStatus() || false;
+    let encrypted =
+      legacyCiphertext || encryption?.getEncryptionStatus() || false;
 
     if (unencrypted && entry.secret) {
       secret = entry.secret;
@@ -293,11 +300,15 @@ export class EntryStorage {
       storageItem.algorithm = OTPAlgorithm[entry.algorithm];
     }
 
-    if (encryption?.getEncryptionKeyId()) {
+    if (!legacyCiphertext && encryption?.getEncryptionKeyId()) {
       storageItem.keyId = encryption.getEncryptionKeyId();
     }
 
     storageItem.dataType = DataType.OTPStorage;
+
+    if (legacyCiphertext) {
+      return storageItem;
+    }
 
     if (!unencrypted && encrypted && canEncryptWith(encryption)) {
       const encData = await encryption.getEncryptedString(
