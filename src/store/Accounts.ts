@@ -5,6 +5,7 @@ import {
   BrowserStorage,
   ManagedStorage,
   isOldKey,
+  sameStoredValue,
 } from "../models/storage";
 import { Encryption } from "../models/encryption";
 import { legacyDecryptToHex } from "../models/legacy-decrypt";
@@ -593,7 +594,8 @@ export const useAccountsStore = defineStore("accounts", () => {
 
       // https://github.com/Authenticator-Extension/Authenticator/issues/412
       if (isChromium) {
-        await BrowserStorage.clearLogs();
+        // The background finishes the rewrite even if the popup closes.
+        await chrome.runtime.sendMessage({ action: "clearLogs" });
       }
 
       chrome.runtime.sendMessage({
@@ -687,10 +689,10 @@ export const useAccountsStore = defineStore("accounts", () => {
       await chrome.storage.local.set(syncData); // userSettings will be handled later
       const localData = await chrome.storage.local.get();
 
-      // Double check if data was set
+      // Check every value arrived before clearing the old area
       if (
-        Object.keys(syncData).every(
-          (value) => Object.keys(localData).indexOf(value) >= 0,
+        Object.keys(syncData).every((key) =>
+          sameStoredValue(syncData[key], localData[key]),
         )
       ) {
         UserSettings.items.storageLocation = StorageLocation.Local;
@@ -708,16 +710,14 @@ export const useAccountsStore = defineStore("accounts", () => {
       newStorageLocation === StorageLocation.Sync
     ) {
       const localData = await chrome.storage.local.get();
-      if (localData?.UserSettings) {
-        delete localData.UserSettings;
-        await chrome.storage.sync.set(localData);
-      }
+      delete localData.UserSettings;
+      await chrome.storage.sync.set(localData);
       const syncData = await chrome.storage.sync.get();
 
-      // Double check if data was set
+      // Check every value arrived before clearing the old area
       if (
-        Object.keys(localData).every(
-          (value) => Object.keys(syncData).indexOf(value) >= 0,
+        Object.keys(localData).every((key) =>
+          sameStoredValue(localData[key], syncData[key]),
         )
       ) {
         UserSettings.items.storageLocation = StorageLocation.Sync;

@@ -14,8 +14,10 @@ import {
   EntryStorage,
   EntryWriteRefusedError,
   ManagedStorage,
+  sameStoredValue,
 } from "../models/storage";
-import { UserSettings } from "../models/settings";
+import { StorageLocation, UserSettings } from "../models/settings";
+import { useAccountsStore } from "../store/Accounts";
 import { OTPEntry, OTPType, OTPAlgorithm } from "../models/otp";
 import { Encryption, decryptString } from "../models/encryption";
 import {
@@ -1621,6 +1623,81 @@ describe("EntryStorage.getExport plaintext export carries no keyId", () => {
     expect(encrypted[entry.hash].keyId).to.equal(
       "plaintext-export-test-key-id",
     );
+  });
+});
+
+// Switching storage areas clears the old area, so every value must have
+// arrived first; comparing key names alone missed truncated or changed values.
+describe("storage area switch and log clearing", () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("compares stored values regardless of key order", () => {
+    expect(
+      sameStoredValue({ a: 1, b: { c: [1, 2] } }, { b: { c: [1, 2] }, a: 1 }),
+    ).to.equal(true);
+    expect(sameStoredValue({ a: 1 }, { a: 2 })).to.equal(false);
+    expect(sameStoredValue({ a: 1 }, undefined)).to.equal(false);
+  });
+
+  it("keeps the local area when sync did not store every value", async () => {
+    setActivePinia(createPinia());
+    const store = useAccountsStore();
+    const original = UserSettings.items.storageLocation;
+    UserSettings.items.storageLocation = StorageLocation.Local;
+    const entry = { hash: "e", secret: "JBSWY3DPEHPK3PXP" };
+    sinon
+      .stub(chrome.storage.local, "get")
+      .resolves({ e: entry, UserSettings: {} });
+    sinon.stub(chrome.storage.sync, "set").resolves();
+    sinon
+      .stub(chrome.storage.sync, "get")
+      .resolves({ e: { ...entry, secret: "" } });
+    const localClear = sinon.stub(chrome.storage.local, "clear").resolves();
+    const commit = sinon.stub(UserSettings, "commitItems").resolves();
+
+    let error: unknown;
+    try {
+      await store.migrateStorage(StorageLocation.Sync);
+    } catch (e) {
+      error = e;
+    }
+    UserSettings.items.storageLocation = original;
+    expect(error).to.not.equal(undefined);
+    expect(localClear.called).to.equal(false);
+    expect(commit.called).to.equal(false);
+  });
+
+  it("restores the area when clearLogs stopped between clear and set", async () => {
+    await UserSettings.updateItems();
+    const area =
+      chrome.storage[
+        UserSettings.items.storageLocation || StorageLocation.Local
+      ];
+    await area.set({ clearLogsMarker: "keep-me" });
+    const before = await area.get();
+
+    sinon
+      .stub(area, "set")
+      .onFirstCall()
+      .rejects(new Error("worker stopped"))
+      .callThrough();
+    let error: unknown;
+    try {
+      await BrowserStorage.clearLogs();
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+    sinon.restore();
+
+    await BrowserStorage.restoreInterruptedClearLogs();
+    expect(sameStoredValue(await area.get(), before)).to.equal(true);
+    expect(
+      (await chrome.storage.session.get("clearLogsBackup")).clearLogsBackup,
+    ).to.equal(undefined);
+    await area.remove("clearLogsMarker");
   });
 });
 

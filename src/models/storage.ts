@@ -191,18 +191,64 @@ export class BrowserStorage {
 
   // Use for Chrome only.
   // https://github.com/Authenticator-Extension/Authenticator/issues/412
+  // Rewrite the active area so Chromium's LevelDB drops old values from its
+  // logs (#412). A copy waits in memory-only session storage until the
+  // rewrite finishes; restoreInterruptedClearLogs puts it back if the worker
+  // stopped between clear() and set().
   static async clearLogs() {
     const storageLocation = await this.getStorageLocation();
-    if (storageLocation === "local") {
-      const data = await chrome.storage.local.get();
-      await chrome.storage.local.clear();
-      await chrome.storage.local.set(data);
-    } else if (storageLocation === "sync") {
-      const data = await chrome.storage.sync.get();
-      await chrome.storage.sync.clear();
-      await chrome.storage.sync.set(data);
-    }
+    const area = chrome.storage[storageLocation];
+    const data = await area.get();
+    await chrome.storage.session.set({
+      clearLogsBackup: { storageLocation, data },
+    });
+    await area.clear();
+    await area.set(data);
+    await chrome.storage.session.remove("clearLogsBackup");
   }
+
+  static async restoreInterruptedClearLogs() {
+    const { clearLogsBackup } = (await chrome.storage.session.get(
+      "clearLogsBackup",
+    )) as {
+      clearLogsBackup?: {
+        storageLocation?: unknown;
+        data?: Record<string, unknown>;
+      };
+    };
+    if (
+      !clearLogsBackup ||
+      (clearLogsBackup.storageLocation !== StorageLocation.Local &&
+        clearLogsBackup.storageLocation !== StorageLocation.Sync)
+    ) {
+      return;
+    }
+    await chrome.storage[clearLogsBackup.storageLocation].set(
+      clearLogsBackup.data || {},
+    );
+    await chrome.storage.session.remove("clearLogsBackup");
+  }
+}
+
+// Compares two values read back from chrome.storage, ignoring key order.
+export function sameStoredValue(a: unknown, b: unknown): boolean {
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map(canonical);
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((key) => [
+            key,
+            canonical((value as Record<string, unknown>)[key]),
+          ]),
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 }
 
 export function isOldKey(key: unknown): key is OldKey {

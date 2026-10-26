@@ -1,6 +1,6 @@
 import { getCredentials } from "./models/credentials";
 import { Encryption } from "./models/encryption";
-import { EntryStorage, ManagedStorage } from "./models/storage";
+import { BrowserStorage, EntryStorage, ManagedStorage } from "./models/storage";
 import { Dropbox, revokeDropboxTokens } from "./models/backup";
 import {
   getSiteNameFromTab,
@@ -20,13 +20,21 @@ import {
   isValidDropboxOAuthState,
 } from "./cloud-providers";
 
-chrome.runtime.onMessage.addListener((message, sender) => {
+// Put back data a clearLogs rewrite left half done when the worker stopped.
+void BrowserStorage.restoreInterruptedClearLogs().catch((error) =>
+  console.error(
+    "Restoring storage after an interrupted clearLogs failed",
+    error,
+  ),
+);
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Only act on messages from our own extension pages / content scripts, never
   // another extension. (No externally_connectable is set, so web pages can't
   // reach here, but this is cheap defense-in-depth for the sensitive actions
   // below — cache passphrase, cloud backup, lock.)
   if (sender.id !== chrome.runtime.id) {
-    return;
+    return false;
   }
   // Content scripts run inside web pages and only ever send getCapture. Every
   // other action (cache passphrase, lock, cloud backup, ...) must come from an
@@ -34,7 +42,15 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   const fromExtensionPage =
     sender.url?.startsWith(chrome.runtime.getURL("")) === true;
   if (message.action !== "getCapture" && !fromExtensionPage) {
-    return;
+    return false;
+  }
+
+  // The popup waits for the rewrite to finish before it continues.
+  if (message.action === "clearLogs") {
+    BrowserStorage.clearLogs()
+      .catch((error) => console.error("clearLogs failed", error))
+      .finally(() => sendResponse(true));
+    return true;
   }
 
   // None of these handlers send a response, so do the async work fire-and-forget
@@ -89,6 +105,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
       updateContextMenu();
     }
   })();
+  return false;
 });
 
 chrome.alarms.onAlarm.addListener(() => {
