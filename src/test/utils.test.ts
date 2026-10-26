@@ -26,6 +26,7 @@ import { MultiFormatWriter, BarcodeFormat } from "@zxing/library";
 import { decodeQrFromImageData, computeQrCropRegion } from "../qr-decoder";
 import { useAdvisorStore } from "../store/Advisor";
 import { useBackupStore } from "../store/Backup";
+import { revokeDropboxTokens } from "../models/backup";
 import {
   generateDropboxOAuthState,
   isCloudProviderEnabled,
@@ -243,6 +244,79 @@ describe("cloud provider security boundary", () => {
     expect(isValidDropboxOAuthState(state, state)).to.equal(true);
     expect(isValidDropboxOAuthState(state, "different-state")).to.equal(false);
     expect(isValidDropboxOAuthState(state, null)).to.equal(false);
+  });
+});
+
+// Dropbox's token/revoke disables the calling access token and its refresh
+// token. Logging out with an expired or missing access token must still reach
+// a successful revoke through the refresh token.
+describe("revokeDropboxTokens", () => {
+  const REVOKE = "https://api.dropboxapi.com/2/auth/token/revoke";
+  const TOKEN = "https://api.dropboxapi.com/oauth2/token";
+  let fetchStub: sinon.SinonStub;
+
+  function respond(status: number, body: object = {}) {
+    return new Response(JSON.stringify(body), { status });
+  }
+
+  function calls() {
+    return fetchStub.getCalls().map((c) => ({
+      url: c.args[0] as string,
+      auth: (c.args[1]?.headers as Record<string, string>)?.Authorization,
+    }));
+  }
+
+  beforeEach(() => {
+    fetchStub = sinon.stub(window, "fetch");
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("revokes with a valid access token without refreshing", async () => {
+    fetchStub.resolves(respond(200));
+    expect(await revokeDropboxTokens("access", "refresh")).to.equal(true);
+    expect(calls()).to.deep.equal([{ url: REVOKE, auth: "Bearer access" }]);
+  });
+
+  it("refreshes an expired access token, then revokes with the new one", async () => {
+    fetchStub
+      .onFirstCall()
+      .resolves(respond(401))
+      .onSecondCall()
+      .resolves(respond(200, { access_token: "fresh" }))
+      .onThirdCall()
+      .resolves(respond(200));
+    expect(await revokeDropboxTokens("expired", "refresh")).to.equal(true);
+    expect(calls().map((c) => c.url)).to.deep.equal([REVOKE, TOKEN, REVOKE]);
+    expect(calls()[2].auth).to.equal("Bearer fresh");
+    expect(String(fetchStub.getCall(1).args[1]?.body)).to.include(
+      "refresh_token=refresh",
+    );
+  });
+
+  it("revokes through the refresh token when no access token is stored", async () => {
+    fetchStub
+      .onFirstCall()
+      .resolves(respond(200, { access_token: "fresh" }))
+      .onSecondCall()
+      .resolves(respond(200));
+    expect(await revokeDropboxTokens(undefined, "refresh")).to.equal(true);
+    expect(calls()).to.deep.equal([
+      { url: TOKEN, auth: undefined },
+      { url: REVOKE, auth: "Bearer fresh" },
+    ]);
+  });
+
+  it("reports failure when the refresh token is already invalid", async () => {
+    fetchStub.resolves(respond(400, { error: "invalid_grant" }));
+    expect(await revokeDropboxTokens(undefined, "refresh")).to.equal(false);
+  });
+
+  it("does nothing without tokens", async () => {
+    expect(await revokeDropboxTokens()).to.equal(false);
+    expect(fetchStub.called).to.equal(false);
   });
 });
 

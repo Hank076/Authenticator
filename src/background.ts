@@ -1,7 +1,7 @@
 import { getCredentials } from "./models/credentials";
 import { Encryption } from "./models/encryption";
 import { EntryStorage, ManagedStorage } from "./models/storage";
-import { Dropbox } from "./models/backup";
+import { Dropbox, revokeDropboxTokens } from "./models/backup";
 import {
   getSiteName,
   getMatchedEntries,
@@ -532,10 +532,34 @@ function getBackupToken(service: string) {
               console.error("Dropbox token exchange failed");
               return;
             }
+            await UserSettings.updateItems();
+            const oldAccessToken = UserSettings.items.dropboxToken;
+            const oldRefreshToken = UserSettings.items.dropboxRefreshToken;
             UserSettings.items.dropboxToken = res.access_token;
             UserSettings.items.dropboxRefreshToken = res.refresh_token;
             UserSettings.items.dropboxRevoked = false;
             await UserSettings.commitItems();
+            // Signing in again replaces the stored grant; revoke the old one
+            // so it doesn't stay valid unseen. Skip it if Dropbox handed the
+            // same token back, which would revoke the new grant too.
+            if (
+              (oldAccessToken || oldRefreshToken) &&
+              oldAccessToken !== res.access_token &&
+              oldRefreshToken !== res.refresh_token
+            ) {
+              revokeDropboxTokens(oldAccessToken, oldRefreshToken)
+                .then((revoked) => {
+                  if (!revoked) {
+                    console.error("Revoking the previous Dropbox grant failed");
+                  }
+                })
+                .catch((error) =>
+                  console.error(
+                    "Revoking the previous Dropbox grant failed",
+                    error,
+                  ),
+                );
+            }
             await uploadBackup("dropbox");
           } catch (error) {
             console.error("Dropbox token exchange failed", error);

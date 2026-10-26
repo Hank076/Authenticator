@@ -5,6 +5,47 @@ import { EntryStorage } from "./storage";
 import { cloudBackupAllowed } from "../utils";
 import { isCloudProviderEnabled } from "../cloud-providers";
 
+// Revoke a Dropbox grant. Dropbox's token/revoke disables the access token
+// used for the call together with its refresh token, so a missing or expired
+// access token is first replaced through the refresh token. Resolves true once
+// Dropbox confirms the revoke.
+export async function revokeDropboxTokens(
+  accessToken?: string,
+  refreshToken?: string,
+): Promise<boolean> {
+  const revoke = async (token: string) =>
+    (
+      await fetch("https://api.dropboxapi.com/2/auth/token/revoke", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+      })
+    ).ok;
+
+  if (accessToken && (await revoke(accessToken))) {
+    return true;
+  }
+  if (!refreshToken) {
+    return false;
+  }
+  const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body:
+      "grant_type=refresh_token" +
+      "&refresh_token=" +
+      encodeURIComponent(refreshToken) +
+      "&client_id=" +
+      encodeURIComponent(getCredentials().dropbox.client_id),
+  });
+  if (!res.ok) {
+    return false;
+  }
+  const data = await res.json();
+  return Boolean(data.access_token) && (await revoke(data.access_token));
+}
+
 export class Dropbox implements BackupProvider {
   private async refreshToken(): Promise<boolean> {
     await UserSettings.updateItems();
