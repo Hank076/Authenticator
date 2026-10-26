@@ -261,23 +261,6 @@ export default defineComponent({
           },
         );
         return;
-      } else if (tab === "OneDrivePage") {
-        chrome.permissions.request(
-          {
-            origins: [
-              "https://graph.microsoft.com/me/*",
-              "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-            ],
-          },
-          async (granted) => {
-            if (granted) {
-              useStyleStore().showInfo();
-              useCurrentViewStore().changeView(tab);
-            }
-            return;
-          },
-        );
-        return;
       }
     },
     downloadBackUpOneLineOtpAuthFile() {
