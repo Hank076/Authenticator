@@ -1,4 +1,5 @@
 import argon2 from "argon2-browser";
+import { isKnownArgonEncoding } from "./argon-params";
 
 window.addEventListener("message", (event) => {
   const message = event.data;
@@ -45,6 +46,10 @@ class Argon {
 
   static compareHash(hash: string, value: string) {
     return new Promise((resolve: (value: boolean) => void) => {
+      if (typeof hash !== "string" || !isKnownArgonEncoding(hash)) {
+        resolve(false);
+        return;
+      }
       argon2
         .verify({
           pass: value,

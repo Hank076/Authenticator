@@ -25,6 +25,7 @@ import {
 import { KeyUtilities } from "../models/key-utilities";
 import { MultiFormatWriter, BarcodeFormat } from "@zxing/library";
 import { decodeQrFromImageData, computeQrCropRegion } from "../qr-decoder";
+import { isKnownArgonEncoding } from "../argon-params";
 import { useAdvisorStore } from "../store/Advisor";
 import { useBackupStore } from "../store/Backup";
 import { revokeDropboxTokens } from "../models/backup";
@@ -1565,6 +1566,39 @@ describe("EntryStorage.getExport plaintext export carries no keyId", () => {
     expect(encrypted[entry.hash].keyId).to.equal(
       "plaintext-export-test-key-id",
     );
+  });
+});
+
+// Only the parameter sets this extension has used may unlock; a Key record
+// synced in with weaker parameters or argon2d is refused before verifying.
+describe("isKnownArgonEncoding", () => {
+  const salt = "c2FsdHNhbHRzYWx0c2FsdA";
+  const hash24 = "A".repeat(32);
+  const hash32 = "A".repeat(43);
+
+  it("accepts the current and the original parameter sets", () => {
+    expect(
+      isKnownArgonEncoding(`$argon2id$v=19$m=19456,t=2,p=1$${salt}$${hash32}`),
+    ).to.equal(true);
+    expect(
+      isKnownArgonEncoding(`$argon2id$v=19$m=16384,t=1,p=1$${salt}$${hash24}`),
+    ).to.equal(true);
+  });
+
+  it("rejects weaker parameters, other types and malformed strings", () => {
+    for (const encoded of [
+      `$argon2id$v=19$m=1024,t=1,p=1$${salt}$${hash32}`,
+      `$argon2id$v=19$m=19456,t=1,p=1$${salt}$${hash32}`,
+      `$argon2d$v=19$m=19456,t=2,p=1$${salt}$${hash32}`,
+      `$argon2i$v=19$m=19456,t=2,p=1$${salt}$${hash32}`,
+      `$argon2id$v=16$m=19456,t=2,p=1$${salt}$${hash32}`,
+      `$argon2id$v=19$m=19456,t=2,p=1$${salt}$${"A".repeat(10)}`,
+      `$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$${hash32}`,
+      "",
+      "not-a-hash",
+    ]) {
+      expect(isKnownArgonEncoding(encoded), encoded).to.equal(false);
+    }
   });
 });
 

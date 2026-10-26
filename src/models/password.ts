@@ -30,6 +30,9 @@ function callArgonSandbox(message: {
     };
     const timer = setTimeout(() => {
       window.removeEventListener("message", handler);
+      // Reload the hung sandbox so the next call gets a working one instead
+      // of timing out again until the page is reopened.
+      iframe.setAttribute("src", iframe.src);
       reject(new Error("argon2 sandbox timed out"));
     }, 60000);
     window.addEventListener("message", handler);
