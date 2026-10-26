@@ -64,9 +64,20 @@ const insightsData: AdvisorInsightInterface[] = [
 
 // advisorIgnoreList may be stored as a JSON string (legacy) or an array;
 // normalise to an array.
+// The value can arrive through browser sync, so a malformed one must not
+// throw: popup init awaits the advisor store.
 function parseIgnoreList(): string[] {
-  const raw = UserSettings.items.advisorIgnoreList;
-  return typeof raw === "string" ? JSON.parse(raw || "[]") : raw || [];
+  let raw: unknown = UserSettings.items.advisorIgnoreList;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw || "[]");
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(raw)
+    ? raw.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 async function computeInsights(): Promise<AdvisorInsight[]> {

@@ -1491,6 +1491,16 @@ describe("useAdvisorStore init() parses a legacy JSON-string ignoreList", () => 
       .to.be.an("array")
       .that.deep.equals(["autoLockNotSet", "passwordNotSet"]);
   });
+
+  it("treats a malformed or non-array ignoreList as empty instead of throwing", async () => {
+    for (const advisorIgnoreList of ["[not json", '{"a":1}', "42"]) {
+      await chrome.storage.local.set({ UserSettings: { advisorIgnoreList } });
+      setActivePinia(createPinia());
+      const store = useAdvisorStore();
+      await store.init();
+      expect(store.ignoreList, advisorIgnoreList).to.deep.equal([]);
+    }
+  });
 });
 
 // An interrupted v1/v2 -> v3 migration (or a sync from an older device) can
