@@ -165,6 +165,13 @@ function isMatchedEntry(
     return true;
   }
 
+  // Multi-word issuers usually lead with the brand ("Unifi Ubiquiti SSO" on a
+  // page titled "UniFi OS"). Short first words ("My", "The") match too much.
+  const brand = (issuerName.match(/[0-9a-z]+/i)?.[0] || "").toLowerCase();
+  if (siteTitle && brand.length >= 4 && siteTitle.indexOf(brand) !== -1) {
+    return true;
+  }
+
   // siteNameFromHost is derived from the real hostname, not page-controlled.
   if (siteNameFromHost && issuer.indexOf(siteNameFromHost) !== -1) {
     return true;

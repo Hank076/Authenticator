@@ -128,7 +128,7 @@ describe("getMatchedEntries strict (host-bound autofill)", () => {
   });
 });
 
-describe("getMatchedEntries loose (display filtering, unchanged)", () => {
+describe("getMatchedEntries loose (display filtering)", () => {
   it("still matches by issuer name against the real host", () => {
     const entries = [entry("Google", undefined)];
     const matched = getMatchedEntries(
@@ -137,6 +137,20 @@ describe("getMatchedEntries loose (display filtering, unchanged)", () => {
       false,
     );
     expect(matched).to.be.an("array").with.lengthOf(1);
+  });
+
+  it("matches a multi-word issuer by its leading brand word in the title", () => {
+    const entries = [entry("Unifi Ubiquiti SSO", undefined)];
+    const page = site("192.168.1.1", "192.168.1.1", "unifios");
+    expect(getMatchedEntries(page, entries, false)).to.have.lengthOf(1);
+    // autofill never trusts the page title
+    expect(getMatchedEntries(page, entries, true)).to.have.lengthOf(0);
+  });
+
+  it("ignores a short leading word", () => {
+    const entries = [entry("My Company", undefined)];
+    const page = site("example.test", "example", "mypage");
+    expect(getMatchedEntries(page, entries, false)).to.have.lengthOf(0);
   });
 });
 
