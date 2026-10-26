@@ -201,6 +201,10 @@ function isKey(key: unknown): key is Key {
   );
 }
 
+// UUIDv4 (hyphens optional), the shape of every entry storage key.
+const ENTRY_HASH_PATTERN =
+  /^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}$/;
+
 export class EntryStorage {
   private static async getOTPStorageFromEntry(
     entry: OTPEntry,
@@ -536,12 +540,27 @@ export class EntryStorage {
     }
   }
 
+  // Storage keys that hold records other than entries. BrowserStorage.get()
+  // filters these out, so an imported entry written under one of them would
+  // silently replace the record - for a Key, the master password's salt.
+  private static async getReservedStorageKeys() {
+    const reserved = new Set(["key", "UserSettings", "LocalStorage"]);
+    const keys = await BrowserStorage.getKeys();
+    if (!isOldKey(keys)) {
+      for (const key of keys) {
+        reserved.add(key.id);
+      }
+    }
+    return reserved;
+  }
+
   static async import(
     encryption: Encryption,
     data: { [hash: string]: RawOTPStorage },
   ) {
     await this.assertPasswordPolicySatisfied();
     let _data = await BrowserStorage.get();
+    const reservedKeys = await this.getReservedStorageKeys();
     for (const hash of Object.keys(data)) {
       // never trust data import from user
       // data must be decrypted before calling this method
@@ -640,13 +659,19 @@ export class EntryStorage {
       }
 
       // not a valid / old hash
-      if (
-        !/^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}$/.test(
-          hash,
-        )
-      ) {
+      if (!ENTRY_HASH_PATTERN.test(hash)) {
         entryData.hash = crypto.randomUUID();
         delete data[hash];
+      }
+
+      // The inner hash comes from the import file and decides the storage
+      // key, so it gets the same shape check as the outer key and must never
+      // land on a Key record or another non-entry record.
+      if (
+        !ENTRY_HASH_PATTERN.test(entryData.hash) ||
+        reservedKeys.has(entryData.hash)
+      ) {
+        entryData.hash = crypto.randomUUID();
       }
 
       const entry = new OTPEntry(entryData, encryption);

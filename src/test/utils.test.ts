@@ -7,7 +7,11 @@ import {
   shouldApplySearchFilter,
 } from "../utils";
 import * as sinon from "sinon";
-import { EntryStorage, ManagedStorage } from "../models/storage";
+import {
+  BrowserStorage,
+  EntryStorage,
+  ManagedStorage,
+} from "../models/storage";
 import { UserSettings } from "../models/settings";
 import { OTPEntry, OTPType, OTPAlgorithm } from "../models/otp";
 import { Encryption, decryptString } from "../models/encryption";
@@ -644,6 +648,134 @@ describe("EntryStorage enforces the enforcePassword policy on writes", () => {
     get.resolves(false);
     hasKey.resolves(false);
     expect(await EntryStorage.isPasswordRequiredByPolicy()).to.equal(false);
+  });
+});
+
+// BrowserStorage.get() hides Key records, so EntryStorage.import could not see
+// them: an imported entry whose storage key (the outer key or the inner `hash`)
+// matched a Key id, or the v2 name `key`, replaced the master password's Key
+// record and left every encrypted secret undecryptable.
+describe("EntryStorage.import never overwrites a Key record", () => {
+  const keyId = "11111111-2222-4333-8444-555555555555";
+  const keyRecord: Key = {
+    dataType: "Key",
+    id: keyId,
+    salt: "dummy-salt",
+    hash: "dummy-argon2-hash",
+    version: 3,
+  };
+  const password = "dummy-salted-hash";
+  const secret = "JBSWY3DPEHPK3PXP";
+  const uuidPattern =
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+  let entryKeysBefore: string[];
+
+  function payload(hash?: string) {
+    return {
+      secret,
+      type: "totp",
+      account: "dummy-attacker",
+      issuer: "Dummy",
+      ...(hash ? { hash } : {}),
+    } as RawOTPStorage;
+  }
+
+  async function importedKeys() {
+    return Object.keys(await BrowserStorage.get()).filter(
+      (k) => k !== "UserSettings" && !entryKeysBefore.includes(k),
+    );
+  }
+
+  // The import must land as one new entry under a fresh UUID whose encrypted
+  // payload carries the same hash, or the popup cannot unlock it.
+  async function expectSingleEntryUnderFreshUuid(...forbidden: string[]) {
+    const added = await importedKeys();
+    expect(added).to.have.length(1);
+    expect(added[0]).to.match(uuidPattern);
+    expect(forbidden).to.not.include(added[0]);
+
+    const stored = (await BrowserStorage.get())[added[0]] as EncOTPStorage;
+    expect(stored.dataType).to.equal("EncOTPStorage");
+    const inner = JSON.parse(
+      (await decryptString(stored.data, password)) || "",
+    );
+    expect(inner.hash).to.equal(added[0]);
+    expect(inner.secret).to.equal(secret);
+  }
+
+  beforeEach(async () => {
+    entryKeysBefore = Object.keys(await BrowserStorage.get());
+  });
+
+  afterEach(async () => {
+    await BrowserStorage.remove([keyId, "key", ...(await importedKeys())]);
+  });
+
+  describe("with a v3 Key record", () => {
+    const unlocked = new Encryption(password, keyId);
+
+    beforeEach(async () => {
+      await BrowserStorage.set({ [keyId]: keyRecord });
+    });
+
+    async function expectKeyIntact() {
+      expect(await BrowserStorage.getKeys()).to.deep.equal([keyRecord]);
+      expect(await EntryStorage.hasEncryptionKey()).to.equal(true);
+    }
+
+    it("re-keys an entry whose outer key is the Key id", async () => {
+      await EntryStorage.import(unlocked, { [keyId]: payload() });
+      await expectKeyIntact();
+      await expectSingleEntryUnderFreshUuid(keyId);
+    });
+
+    it("re-keys an entry whose inner hash is the Key id", async () => {
+      await EntryStorage.import(unlocked, {
+        "99999999-8888-4777-8666-555555555555": payload(keyId),
+      });
+      await expectKeyIntact();
+      await expectSingleEntryUnderFreshUuid(
+        keyId,
+        "99999999-8888-4777-8666-555555555555",
+      );
+    });
+
+    it("re-keys an entry whose inner hash is not a UUID", async () => {
+      await EntryStorage.import(unlocked, {
+        "99999999-8888-4777-8666-555555555555": payload("UserSettings"),
+      });
+      await expectKeyIntact();
+      await expectSingleEntryUnderFreshUuid(
+        "UserSettings",
+        "99999999-8888-4777-8666-555555555555",
+      );
+    });
+
+    it("keeps the hash of an ordinary UUID entry", async () => {
+      const hash = "22222222-3333-4444-8555-666666666666";
+      await EntryStorage.import(unlocked, { [hash]: payload() });
+      await expectKeyIntact();
+      expect(await importedKeys()).to.deep.equal([hash]);
+    });
+  });
+
+  describe("with a v2 `key` record", () => {
+    const oldKey: OldKey = { enc: "dummy-enc", hash: "dummy-hash" };
+
+    beforeEach(async () => {
+      await BrowserStorage.set({ key: oldKey });
+    });
+
+    it("re-keys an entry whose inner hash is `key`", async () => {
+      await EntryStorage.import(new Encryption(password, "dummy-v2-key-id"), {
+        "99999999-8888-4777-8666-555555555555": payload("key"),
+      });
+      expect(await BrowserStorage.getKeys()).to.deep.equal(oldKey);
+      await expectSingleEntryUnderFreshUuid(
+        "key",
+        "99999999-8888-4777-8666-555555555555",
+      );
+    });
   });
 });
 
