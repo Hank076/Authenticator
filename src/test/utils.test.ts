@@ -234,6 +234,106 @@ describe("useBackupStore disabled provider token cleanup", () => {
   });
 });
 
+// In sync mode commitItems() rewrites both storage areas from
+// UserSettings.items. removeItem used to load only one area's blob into items,
+// so deleting a local key wiped every syncable setting (autolock included) and
+// deleting a syncable key copied the sync blob over the local one.
+describe("UserSettings.removeItem keeps both storage areas intact", () => {
+  let originalLocal: unknown;
+  let originalSync: unknown;
+
+  async function readArea(area: "local" | "sync") {
+    return (await chrome.storage[area].get("UserSettings")).UserSettings;
+  }
+
+  async function seed(local: object, sync: object) {
+    await chrome.storage.local.set({ UserSettings: local });
+    await chrome.storage.sync.set({ UserSettings: sync });
+  }
+
+  beforeEach(async () => {
+    originalLocal = await readArea("local");
+    originalSync = await readArea("sync");
+  });
+
+  afterEach(async () => {
+    for (const [area, original] of [
+      ["local", originalLocal],
+      ["sync", originalSync],
+    ] as const) {
+      if (original === undefined) {
+        await chrome.storage[area].remove("UserSettings");
+      } else {
+        await chrome.storage[area].set({ UserSettings: original });
+      }
+    }
+    await UserSettings.updateItems();
+  });
+
+  describe("sync mode", () => {
+    const local = {
+      storageLocation: "sync",
+      dropboxToken: "dummy-access",
+      dropboxRefreshToken: "dummy-refresh",
+      dropboxRevoked: true,
+      offset: 3,
+    };
+    const sync = {
+      autolock: 1,
+      autofill: true,
+      smartFilter: false,
+      encodedPhrase: "dummy-legacy",
+    };
+
+    it("deletes a local key without touching the sync area", async () => {
+      await seed(local, sync);
+      await UserSettings.removeItem("dropboxRevoked");
+
+      const { dropboxRevoked: _removed, ...expectedLocal } = local;
+      expect(await readArea("local")).to.deep.equal(expectedLocal);
+      expect(await readArea("sync")).to.deep.equal(sync);
+    });
+
+    it("deletes a syncable key without touching the local area", async () => {
+      await seed(local, sync);
+      await UserSettings.removeItem("encodedPhrase");
+
+      const { encodedPhrase: _removed, ...expectedSync } = sync;
+      expect(await readArea("local")).to.deep.equal(local);
+      expect(await readArea("sync")).to.deep.equal(expectedSync);
+    });
+  });
+
+  describe("local mode", () => {
+    const local = {
+      storageLocation: "local",
+      dropboxToken: "dummy-access",
+      dropboxRevoked: true,
+      autolock: 1,
+      encodedPhrase: "dummy-legacy",
+    };
+    const sync = { autolock: 5, theme: "dummy-sentinel" };
+
+    it("deletes a local key and leaves the sync area alone", async () => {
+      await seed(local, sync);
+      await UserSettings.removeItem("dropboxRevoked");
+
+      const { dropboxRevoked: _removed, ...expectedLocal } = local;
+      expect(await readArea("local")).to.deep.equal(expectedLocal);
+      expect(await readArea("sync")).to.deep.equal(sync);
+    });
+
+    it("deletes a syncable key and leaves the sync area alone", async () => {
+      await seed(local, sync);
+      await UserSettings.removeItem("encodedPhrase");
+
+      const { encodedPhrase: _removed, ...expectedLocal } = local;
+      expect(await readArea("local")).to.deep.equal(expectedLocal);
+      expect(await readArea("sync")).to.deep.equal(sync);
+    });
+  });
+});
+
 // The bound host must survive a storage round-trip (save -> reload). Without a
 // master password an entry is stored as plaintext and rebuilt via the explicit
 // field list in EntryStorage.get(), which used to drop the host field.

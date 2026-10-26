@@ -115,21 +115,11 @@ export class UserSettings {
   }
 
   static async removeItem(key: keyof UserSettingsData) {
-    const localSettings = await UserSettings.getStorageData(
-      StorageLocation.Local,
-    );
-    const storageLocation =
-      localSettings.storageLocation || StorageLocation.Local;
-
-    const location = LocalUserSettingsDataKeys.includes(key)
-      ? StorageLocation.Local
-      : storageLocation;
-    const storageData: UserSettingsData =
-      (await chrome.storage[location].get("UserSettings"))?.UserSettings || {};
-    delete storageData[key];
-
-    UserSettings.items = storageData;
-
+    // commitItems rewrites both areas from UserSettings.items in sync mode, so
+    // it needs the merged settings (including storageLocation); a single
+    // area's blob would wipe or misplace the other half.
+    await UserSettings.updateItems();
+    delete UserSettings.items[key];
     await UserSettings.commitItems();
   }
 
