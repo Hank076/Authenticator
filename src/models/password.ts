@@ -1,44 +1,60 @@
 import { BrowserStorage, isOldKey } from "./storage";
 
-// Single argon-sandbox round-trip. Every request carries a unique id; the
-// listener only accepts the reply that comes from our sandbox iframe and
-// matches that id, then removes itself. This replaces the old per-call
-// anonymous listeners that were never removed and resolved on whatever message
-// arrived first (a correctness hazard when calls overlapped). A timeout turns a
-// hung sandbox into a rejection instead of an indefinite wait.
-function callArgonSandbox(message: {
+let argonWorker: Worker | undefined;
+
+function getArgonWorker(): Worker {
+  if (!argonWorker) {
+    argonWorker = new Worker(chrome.runtime.getURL("js/argon-worker.js"));
+  }
+  return argonWorker;
+}
+
+// A hung or crashed worker is discarded; the next call starts a new one.
+function resetArgonWorker() {
+  argonWorker?.terminate();
+  argonWorker = undefined;
+}
+
+// One argon2 round-trip to the worker. Every request carries a unique id and
+// only the reply with that id settles it, so overlapping calls can't swap
+// results. A timeout turns a hung worker into a rejection.
+function callArgonWorker(message: {
   action: "hash" | "verify";
   [key: string]: unknown;
 }): Promise<unknown> {
-  const iframe = document.getElementById(
-    "argon-sandbox",
-  ) as HTMLIFrameElement | null;
-  if (!iframe || !iframe.contentWindow) {
-    throw new Error("argon-sandbox missing!");
-  }
-  const sandbox = iframe.contentWindow;
+  const worker = getArgonWorker();
   const id = crypto.randomUUID();
 
   return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      worker.removeEventListener("message", handler);
+      worker.removeEventListener("error", onError);
+      clearTimeout(timer);
+    };
     const handler = (event: MessageEvent) => {
-      if (event.source !== sandbox || !event.data || event.data.id !== id) {
+      if (!event.data || event.data.id !== id) {
         return;
       }
-      window.removeEventListener("message", handler);
-      clearTimeout(timer);
-      resolve(event.data.response);
+      cleanup();
+      if (event.data.error) {
+        reject(new Error(event.data.error));
+      } else {
+        resolve(event.data.response);
+      }
+    };
+    const onError = (event: ErrorEvent) => {
+      cleanup();
+      resetArgonWorker();
+      reject(new Error("argon2 worker failed: " + event.message));
     };
     const timer = setTimeout(() => {
-      window.removeEventListener("message", handler);
-      // Reload the hung sandbox so the next call gets a working one instead
-      // of timing out again until the page is reopened.
-      iframe.setAttribute("src", iframe.src);
-      reject(new Error("argon2 sandbox timed out"));
+      cleanup();
+      resetArgonWorker();
+      reject(new Error("argon2 worker timed out"));
     }, 60000);
-    window.addEventListener("message", handler);
-    // The sandbox iframe has an opaque origin, so "*" is required to post to it;
-    // the event.source check above is what authenticates the reply.
-    sandbox.postMessage({ ...message, id }, "*");
+    worker.addEventListener("message", handler);
+    worker.addEventListener("error", onError);
+    worker.postMessage({ ...message, id });
   });
 }
 
@@ -46,7 +62,7 @@ export async function argonHash(
   value: string,
   salt: string,
 ): Promise<string | undefined> {
-  return (await callArgonSandbox({ action: "hash", value, salt })) as
+  return (await callArgonWorker({ action: "hash", value, salt })) as
     string | undefined;
 }
 
@@ -54,7 +70,7 @@ export async function argonVerify(
   value: string,
   hash: string,
 ): Promise<boolean> {
-  return (await callArgonSandbox({ action: "verify", value, hash })) as boolean;
+  return (await callArgonWorker({ action: "verify", value, hash })) as boolean;
 }
 
 // Verify a password using keys in BrowserStorage

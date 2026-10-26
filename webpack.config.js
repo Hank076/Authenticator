@@ -7,7 +7,7 @@ module.exports = {
   mode: "development",
   devtool: "source-map",
   entry: {
-    argon: "./src/argon.ts",
+    "argon-worker": "./src/argon-worker.ts",
     background: "./src/background.ts",
     content: "./src/content.ts",
     popup: "./src/popup.ts",
@@ -18,29 +18,6 @@ module.exports = {
   },
   module: {
     rules: [
-      {
-        // argon2-browser overrides.
-        // argon2-browser's decodeWasmBinary() calls atob() directly on this
-        // module's default export, so it must be a raw base64 string — NOT
-        // a data URI. The default asset/inline generator would emit
-        // "data:application/wasm;base64,...", which atob() would decode
-        // literally and corrupt the wasm binary. This custom generator
-        // reproduces base64-loader's exact output format.
-        //
-        // Note: the old `module.noParse: /\.wasm$/` (needed by base64-loader
-        // to skip scanning its generated JS for requires) is intentionally
-        // NOT carried over here — with asset modules it does more than skip
-        // parsing: it was empirically verified (isolated webpack repro) to
-        // make webpack silently fall back to asset/resource codegen
-        // (`__webpack_require__.p + filename`, a separate emitted .wasm
-        // file + URL string) instead of running this dataUrl generator at
-        // all, breaking decodeWasmBinary's atob() call at runtime.
-        test: /\.wasm$/,
-        type: "asset/inline",
-        generator: {
-          dataUrl: (content) => content.toString("base64"),
-        },
-      },
       {
         test: /\.tsx?$/,
         loader: "ts-loader",
@@ -90,16 +67,10 @@ module.exports = {
       ".jsx",
       ".vue",
       ".json",
-      ".wasm",
       ".ts",
       ".tsx",
     ],
     modules: ["node_modules"],
-    fallback: {
-      // Stop argon2-browser from trying to bring in node modules
-      fs: false,
-      path: false,
-    },
   },
   output: {
     path: path.resolve(__dirname, "js"),

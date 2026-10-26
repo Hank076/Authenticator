@@ -37,11 +37,6 @@
     "background": {
         "service_worker": "js/background.js"
     },
-    "sandbox": {
-        "pages": [
-            "view/argon.html"
-        ]
-    },
     "permissions": [
         "activeTab",
         "storage",

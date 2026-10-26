@@ -28,6 +28,7 @@ import { KeyUtilities } from "../models/key-utilities";
 import { MultiFormatWriter, BarcodeFormat } from "@zxing/library";
 import { decodeQrFromImageData, computeQrCropRegion } from "../qr-decoder";
 import { isKnownArgonEncoding } from "../argon-params";
+import { argonHashEncoded, argonVerifyEncoded } from "../argon-core";
 import { getOTPAuthPerLineFromOPTAuthMigration } from "../models/migration";
 import { useAdvisorStore } from "../store/Advisor";
 import { useBackupStore } from "../store/Backup";
@@ -1885,6 +1886,66 @@ describe("isKnownArgonEncoding", () => {
     ]) {
       expect(isKnownArgonEncoding(encoded), encoded).to.equal(false);
     }
+  });
+});
+
+// Encoded hashes produced by argon2-browser 1.18.0, which earlier versions
+// used for every Key record. The @noble/hashes implementation must reproduce
+// them byte for byte, or existing master passwords stop unlocking.
+describe("argon2 compatibility with argon2-browser Key records", function () {
+  // each argon2 call takes ~0.1 s; verifying runs ten of them
+  this.timeout(30000);
+
+  const fixtures = [
+    {
+      pass: "dummy-master-pw",
+      salt: "0f3a00b2c9d40e7f8a1b2c3d4e5f6071",
+      encoded:
+        "$argon2id$v=19$m=19456,t=2,p=1$MGYzYTAwYjJjOWQ0MGU3ZjhhMWIyYzNkNGU1ZjYwNzE$/coTA9L+QabgePJmoUPKT/GiqlXrLHCleShr6qOdUvg",
+    },
+    {
+      pass: "密碼Ünïcode🔐 with spaces",
+      salt: "0f3a00b2c9d40e7f8a1b2c3d4e5f6071",
+      encoded:
+        "$argon2id$v=19$m=19456,t=2,p=1$MGYzYTAwYjJjOWQ0MGU3ZjhhMWIyYzNkNGU1ZjYwNzE$gsowt6kvxTRQv9UJTEtkWx4rqwcE2/7S88ZVE8uoX2o",
+    },
+    {
+      // the second hash of a Key: the password is the first hash's output
+      pass: "jQ9jHaNCH5sTMPqp4/NxtGIjlbIM79QO8jDg3y1e4FU",
+      salt: "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      encoded:
+        "$argon2id$v=19$m=19456,t=2,p=1$YTFiMmMzZDRlNWY2MDcxODI5M2E0YjVjNmQ3ZThmOTA$ep30lpddt4t4sTbUBG+vLMZ7AscU3ROqJcTwvWU6EFM",
+    },
+  ];
+  const oldFixtures = [
+    {
+      pass: "dummy-master-pw",
+      encoded:
+        "$argon2id$v=19$m=16384,t=1,p=1$ZHVtbXktc2FsdC0wMTIzNDU2Nzg5$xAHtLaaLwxx31U6ugkY6fAWhIpagAuDb",
+    },
+    {
+      pass: "密碼Ünïcode🔐 with spaces",
+      encoded:
+        "$argon2id$v=19$m=16384,t=1,p=1$ZHVtbXktc2FsdC0wMTIzNDU2Nzg5$EEg84pEYObeSUvr3yQZP+f93L2qOer5k",
+    },
+  ];
+
+  it("hashes with the current parameters exactly like argon2-browser", () => {
+    for (const { pass, salt, encoded } of fixtures) {
+      expect(argonHashEncoded(pass, salt), pass).to.equal(encoded);
+    }
+  });
+
+  it("verifies Key records made with either parameter set", () => {
+    for (const { pass, encoded } of [...fixtures, ...oldFixtures]) {
+      expect(argonVerifyEncoded(pass, encoded), encoded).to.equal(true);
+      expect(argonVerifyEncoded(pass + "x", encoded), encoded).to.equal(false);
+    }
+  });
+
+  it("refuses encodings outside the whitelist", () => {
+    const weak = fixtures[0].encoded.replace("m=19456,t=2", "m=1024,t=1");
+    expect(argonVerifyEncoded(fixtures[0].pass, weak)).to.equal(false);
   });
 });
 

@@ -172,9 +172,6 @@ importers:
       '@zxing/library':
         specifier: ^0.23.0
         version: 0.23.0
-      argon2-browser:
-        specifier: ^1.18.0
-        version: 1.18.0
       node-gost-crypto:
         specifier: ^1.0.2
         version: 1.0.2
@@ -197,9 +194,6 @@ importers:
       '@pinia/testing':
         specifier: ^2.0.1
         version: 2.0.2(pinia@4.1.0(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))
-      '@types/argon2-browser':
-        specifier: ^1.18.1
-        version: 1.18.4
       '@types/chai':
         specifier: ^4.2.14
         version: 4.3.20
@@ -557,9 +551,6 @@ packages:
   '@tootallnate/quickjs-emscripten@0.23.0':
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
 
-  '@types/argon2-browser@1.18.4':
-    resolution: {integrity: sha512-K/PHAEKzdCY4mCRhgUTBcuTxeaJyLoPcd5pJ1UFSTb/FAPjj3TCK4EM/DvNmVtDzkQBMD5peJjtch3kVQDf4YQ==}
-
   '@types/chai@4.3.20':
     resolution: {integrity: sha512-/pC9HAB5I/xMlc5FP77qjCnI16ChlJfW0tGa0IUcFn38VJrTV6DeZ60NU5KZBtaOZqjdpwTWohz5HU1RrhiYxQ==}
 
@@ -823,9 +814,6 @@ packages:
   ansi-styles@6.2.3:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
     engines: {node: '>=12'}
-
-  argon2-browser@1.18.0:
-    resolution: {integrity: sha512-ImVAGIItnFnvET1exhsQB7apRztcoC5TnlSqernMJDUjbc/DLq3UEYeXFrLPrlaIl8cVfwnXb6wX2KpFf2zxHw==}
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -2564,8 +2552,6 @@ snapshots:
 
   '@tootallnate/quickjs-emscripten@0.23.0': {}
 
-  '@types/argon2-browser@1.18.4': {}
-
   '@types/chai@4.3.20': {}
 
   '@types/chrome@0.2.9':
@@ -2918,8 +2904,6 @@ snapshots:
       color-convert: 2.0.1
 
   ansi-styles@6.2.3: {}
-
-  argon2-browser@1.18.0: {}
 
   argparse@2.0.1: {}
 

@@ -38,11 +38,6 @@
     "background": {
         "service_worker": "js/background.js"
     },
-    "sandbox": {
-        "pages": [
-            "view/argon.html"
-        ]
-    },
     "permissions": [
         "activeTab",
         "storage",
@@ -59,7 +54,6 @@
         "https://*.dropboxapi.com/*"
     ],
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; font-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src https://www.google.com/ https://*.dropboxapi.com; default-src 'none'",
-        "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval';"
+        "extension_pages": "script-src 'self'; font-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src https://www.google.com/ https://*.dropboxapi.com; default-src 'none'"
     }
   }
