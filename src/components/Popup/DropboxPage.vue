@@ -114,14 +114,25 @@
 </template>
 <script lang="ts">
 import { defineComponent } from "vue";
-import { Dropbox, revokeDropboxTokens } from "../../models/backup";
+import {
+  Dropbox,
+  readDropboxTokens,
+  revokeDropboxTokens,
+} from "../../models/backup";
 import { UserSettings } from "../../models/settings";
+import { Encryption } from "../../models/encryption";
 import { useStyleStore } from "../../store/Style";
 import { useBackupStore } from "../../store/Backup";
 import { useNotificationStore } from "../../store/Notification";
 import { useAccountsStore } from "../../store/Accounts";
 
 const service = "dropbox";
+
+// The unlocked default key; Dropbox tokens are stored encrypted under it.
+function currentEncryption() {
+  const accountsStore = useAccountsStore();
+  return accountsStore.encryption.get(accountsStore.defaultEncryption);
+}
 
 export default defineComponent({
   data: function () {
@@ -166,9 +177,9 @@ export default defineComponent({
       // delete one key, write it all back). Two un-awaited calls race: each
       // reads the same snapshot holding both tokens, deletes its own, and the
       // later write restores the other. Clear both keys in a single commit.
+      const { accessToken, refreshToken } =
+        await readDropboxTokens(currentEncryption());
       await UserSettings.updateItems();
-      const accessToken = UserSettings.items.dropboxToken;
-      const refreshToken = UserSettings.items.dropboxRefreshToken;
       delete UserSettings.items.dropboxToken;
       delete UserSettings.items.dropboxRefreshToken;
       await UserSettings.commitItems();
@@ -187,11 +198,10 @@ export default defineComponent({
       }
     },
     async backupUpload() {
-      const dbox = new Dropbox();
-      const accountsStore = useAccountsStore();
-      const response = await dbox.upload(
-        accountsStore.encryption.get(accountsStore.defaultEncryption),
-      );
+      const encryption = currentEncryption();
+      const response = encryption
+        ? await new Dropbox(encryption).upload(encryption as Encryption)
+        : false;
       if (response === true) {
         useNotificationStore().alert(this.i18n.updateSuccess);
       } else if (UserSettings.items.dropboxRevoked === true) {
@@ -205,8 +215,7 @@ export default defineComponent({
       }
     },
     async getUser() {
-      const dbox = new Dropbox();
-      return await dbox.getUser();
+      return await new Dropbox(currentEncryption()).getUser();
     },
     onAuthDone(message: { action?: string }) {
       if (message.action !== "dropboxauthdone") {

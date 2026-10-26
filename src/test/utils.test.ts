@@ -31,7 +31,11 @@ import { isKnownArgonEncoding } from "../argon-params";
 import { getOTPAuthPerLineFromOPTAuthMigration } from "../models/migration";
 import { useAdvisorStore } from "../store/Advisor";
 import { useBackupStore } from "../store/Backup";
-import { revokeDropboxTokens } from "../models/backup";
+import {
+  readDropboxTokens,
+  revokeDropboxTokens,
+  writeDropboxTokens,
+} from "../models/backup";
 import {
   generateDropboxOAuthState,
   isCloudProviderEnabled,
@@ -363,6 +367,89 @@ describe("revokeDropboxTokens", () => {
   it("does nothing without tokens", async () => {
     expect(await revokeDropboxTokens()).to.equal(false);
     expect(fetchStub.called).to.equal(false);
+  });
+});
+
+// Dropbox tokens are stored encrypted under the master password key; only
+// the unlocked vault can read them, and plaintext from older versions is
+// re-encrypted on the next read.
+describe("encrypted Dropbox token storage", () => {
+  const key = new Encryption("dummy-salted-hash", "dropbox-key-id");
+  const otherKey = new Encryption("another-salted-hash", "other-key-id");
+  const tokens = { accessToken: "sl.access", refreshToken: "refresh-token" };
+  let originalUserSettings: unknown;
+
+  async function stored() {
+    await UserSettings.updateItems();
+    return {
+      access: UserSettings.items.dropboxToken,
+      refresh: UserSettings.items.dropboxRefreshToken,
+      revoked: UserSettings.items.dropboxRevoked,
+    };
+  }
+
+  beforeEach(async () => {
+    originalUserSettings = (await chrome.storage.local.get("UserSettings"))
+      .UserSettings;
+  });
+
+  afterEach(async () => {
+    if (originalUserSettings === undefined) {
+      await chrome.storage.local.remove("UserSettings");
+    } else {
+      await chrome.storage.local.set({ UserSettings: originalUserSettings });
+    }
+    await UserSettings.updateItems();
+  });
+
+  it("stores ciphertext and reads it back with the same key", async () => {
+    await writeDropboxTokens(key, tokens);
+    const { access, refresh } = await stored();
+    expect(access).to.match(/^v4:/);
+    expect(refresh).to.match(/^v4:/);
+    expect(await readDropboxTokens(key)).to.deep.equal(tokens);
+  });
+
+  it("leaves the tokens stored while locked", async () => {
+    await writeDropboxTokens(key, tokens);
+    const before = await stored();
+    expect(await readDropboxTokens(new Encryption("", ""))).to.deep.equal({});
+    expect(await readDropboxTokens(undefined)).to.deep.equal({});
+    expect(await stored()).to.deep.equal(before);
+  });
+
+  it("signs out when the tokens belong to another key", async () => {
+    await writeDropboxTokens(key, tokens);
+    expect(await readDropboxTokens(otherKey)).to.deep.equal({});
+    const { access, refresh, revoked } = await stored();
+    expect(access).to.equal(undefined);
+    expect(refresh).to.equal(undefined);
+    expect(revoked).to.equal(true);
+  });
+
+  it("encrypts plaintext tokens from older versions on read", async () => {
+    await UserSettings.updateItems();
+    UserSettings.items.dropboxToken = tokens.accessToken;
+    UserSettings.items.dropboxRefreshToken = tokens.refreshToken;
+    await UserSettings.commitItems();
+
+    expect(await readDropboxTokens(key)).to.deep.equal(tokens);
+    const { access, refresh } = await stored();
+    expect(access).to.match(/^v4:/);
+    expect(refresh).to.match(/^v4:/);
+  });
+
+  it("refuses to store tokens without a key", async () => {
+    let error: unknown;
+    try {
+      await writeDropboxTokens(new Encryption("", ""), tokens);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(Error);
+    const { access, refresh } = await stored();
+    expect(access).to.not.equal(tokens.accessToken);
+    expect(refresh).to.not.equal(tokens.refreshToken);
   });
 });
 

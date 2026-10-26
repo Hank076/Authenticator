@@ -8,6 +8,12 @@ import {
   sameStoredValue,
 } from "../models/storage";
 import { Encryption } from "../models/encryption";
+import {
+  readDropboxTokens,
+  revokeDropboxTokens,
+  writeDropboxTokens,
+} from "../models/backup";
+import { useBackupStore } from "./Backup";
 import { legacyDecryptToHex } from "../models/legacy-decrypt";
 import { OTPType, OTPAlgorithm } from "../models/otp";
 import { useCurrentViewStore } from "./CurrentView";
@@ -512,6 +518,11 @@ export const useAccountsStore = defineStore("accounts", () => {
   }
 
   async function changePassphrase(password: string) {
+    // Dropbox tokens are encrypted under the current default key; read them
+    // before the key changes.
+    const dropboxTokens = await readDropboxTokens(
+      encryption.value.get(defaultEncryption.value),
+    );
     if (password) {
       // The hash of the user's password is used as the encryption key for user data.
       const rawSaltedHash = await genHash(password);
@@ -590,6 +601,13 @@ export const useAccountsStore = defineStore("accounts", () => {
       });
       setDefaultEncryption(key.id);
 
+      if (dropboxTokens.accessToken || dropboxTokens.refreshToken) {
+        await writeDropboxTokens(
+          new Encryption(saltedHash, key.id),
+          dropboxTokens,
+        );
+      }
+
       await updateEntries();
 
       // https://github.com/Authenticator-Extension/Authenticator/issues/412
@@ -624,6 +642,23 @@ export const useAccountsStore = defineStore("accounts", () => {
         await BrowserStorage.remove(keyId);
       }
       setDefaultEncryption("");
+
+      // Cloud backup needs a password, and there is no key left to keep the
+      // tokens encrypted: sign out of Dropbox.
+      await UserSettings.updateItems();
+      if (
+        UserSettings.items.dropboxToken ||
+        UserSettings.items.dropboxRefreshToken
+      ) {
+        delete UserSettings.items.dropboxToken;
+        delete UserSettings.items.dropboxRefreshToken;
+        await UserSettings.commitItems();
+        useBackupStore().setToken({ service: "dropbox", value: false });
+        revokeDropboxTokens(
+          dropboxTokens.accessToken,
+          dropboxTokens.refreshToken,
+        ).catch((error) => console.error("Dropbox token revoke failed", error));
+      }
 
       await updateEntries();
 

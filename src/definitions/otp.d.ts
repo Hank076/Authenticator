@@ -27,6 +27,7 @@ interface OTPEntryInterface {
 
 interface EncryptionInterface {
   getEncryptedString(data: string): Promise<string>;
+  getDecryptedString(data: string): Promise<string | null>;
   decryptSecretString(entry: string): Promise<string | null>;
   decryptEncSecret(entry: OTPEntryInterface): Promise<RawOTPStorage | null>;
   getEncryptionStatus(): boolean;

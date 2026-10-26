@@ -34,6 +34,12 @@ async function deriveKey(password: string): Promise<CryptoKey> {
   ]);
 }
 
+// True for ciphertext getEncryptedString produced (as opposed to plaintext or
+// legacy AES-CBC).
+export function isGcmCiphertext(data: string): boolean {
+  return data.startsWith(GCM_PREFIX);
+}
+
 // Prefix-aware decrypt shared by the Encryption class and the backup importer.
 // GCM throws on a wrong key / tampered data (auth tag); we surface that as null
 // like the legacy path. Returns null on any failure.
@@ -105,6 +111,13 @@ export class Encryption implements EncryptionInterface {
     combined.set(iv, 0);
     combined.set(new Uint8Array(ciphertext), iv.length);
     return GCM_PREFIX + bytesToBase64(combined);
+  }
+
+  async getDecryptedString(data: string): Promise<string | null> {
+    if (!this.password) {
+      return null;
+    }
+    return decryptString(data, this.password);
   }
 
   async decryptSecretString(secret: string): Promise<string | null> {

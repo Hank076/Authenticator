@@ -226,14 +226,12 @@ async function runScheduledBackup(
       async (hasPermission) => {
         if (hasPermission) {
           try {
-            const dropbox = new Dropbox();
             // map values are real Encryption instances; the store types them as
             // the EncryptionInterface, so narrow for upload()'s concrete param.
-            const res = await dropbox.upload(
-              accountsStore.encryption.get(
-                accountsStore.defaultEncryption,
-              ) as Encryption,
-            );
+            const encryption = accountsStore.encryption.get(
+              accountsStore.defaultEncryption,
+            ) as Encryption;
+            const res = await new Dropbox(encryption).upload(encryption);
             if (res) {
               // we have uploaded backup to Dropbox
               // no need to remind

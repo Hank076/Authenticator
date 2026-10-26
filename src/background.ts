@@ -1,7 +1,12 @@
 import { getCredentials } from "./models/credentials";
 import { Encryption } from "./models/encryption";
 import { BrowserStorage, EntryStorage, ManagedStorage } from "./models/storage";
-import { Dropbox, revokeDropboxTokens } from "./models/backup";
+import {
+  Dropbox,
+  readDropboxTokens,
+  revokeDropboxTokens,
+  writeDropboxTokens,
+} from "./models/backup";
 import {
   getSiteNameFromTab,
   getMatchedEntries,
@@ -557,11 +562,29 @@ function getBackupToken(service: string) {
               console.error("Dropbox token exchange failed");
               return;
             }
+            // Tokens are stored encrypted under the master password key. The
+            // sign-in can take minutes; if the vault locked meanwhile, drop
+            // the tokens rather than store them as plaintext.
+            const { cachedPassphrase, cachedKeyId } =
+              await chrome.storage.session.get();
+            const encryption = new Encryption(
+              cachedPassphrase as string,
+              cachedKeyId as string,
+            );
+            if (!encryption.getEncryptionStatus()) {
+              revokeDropboxTokens(res.access_token).catch(() => undefined);
+              // caught below, which still reports dropboxauthdone
+              throw new Error("Dropbox sign-in finished while locked");
+            }
+            const {
+              accessToken: oldAccessToken,
+              refreshToken: oldRefreshToken,
+            } = await readDropboxTokens(encryption);
+            await writeDropboxTokens(encryption, {
+              accessToken: res.access_token,
+              refreshToken: res.refresh_token,
+            });
             await UserSettings.updateItems();
-            const oldAccessToken = UserSettings.items.dropboxToken;
-            const oldRefreshToken = UserSettings.items.dropboxRefreshToken;
-            UserSettings.items.dropboxToken = res.access_token;
-            UserSettings.items.dropboxRefreshToken = res.refresh_token;
             UserSettings.items.dropboxRevoked = false;
             await UserSettings.commitItems();
             // Signing in again replaces the stored grant; revoke the old one
@@ -612,7 +635,7 @@ async function uploadBackup(service: string) {
 
   switch (service) {
     case "dropbox":
-      await new Dropbox().upload(encryption);
+      await new Dropbox(encryption).upload(encryption);
       break;
 
     default:
