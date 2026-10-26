@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import {
   getMatchedEntries,
   cloudBackupAllowed,
+  getSiteNameFromTab,
   isSessionLockChange,
   shouldApplySearchFilter,
 } from "../utils";
@@ -151,6 +152,33 @@ describe("getMatchedEntries loose (display filtering)", () => {
     const entries = [entry("My Company", undefined)];
     const page = site("example.test", "example", "mypage");
     expect(getMatchedEntries(page, entries, false)).to.have.lengthOf(0);
+  });
+});
+
+// The background keyboard autofill has no document, so it derives the site
+// name from the tab it already holds.
+describe("getSiteNameFromTab", () => {
+  it("normalizes the title and parses the host", () => {
+    const tab = {
+      title: "Sign in - Example!",
+      url: "https://login.example.com/x",
+    } as chrome.tabs.Tab;
+    expect(getSiteNameFromTab(tab)).to.deep.equal([
+      "signinexample",
+      "example",
+      "login.example.com",
+    ]);
+  });
+
+  it("autofills a bound entry for its host", () => {
+    const tab = {
+      title: "Login",
+      url: "https://accounts.example.com/",
+    } as chrome.tabs.Tab;
+    const entries = [entry("Example", "example.com")];
+    expect(
+      getMatchedEntries(getSiteNameFromTab(tab), entries, true),
+    ).to.have.lengthOf(1);
   });
 });
 

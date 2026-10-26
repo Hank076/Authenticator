@@ -3,7 +3,7 @@ import { Encryption } from "./models/encryption";
 import { EntryStorage, ManagedStorage } from "./models/storage";
 import { Dropbox, revokeDropboxTokens } from "./models/backup";
 import {
-  getSiteName,
+  getSiteNameFromTab,
   getMatchedEntries,
   getCurrentTab,
   okToInjectContentScript,
@@ -28,7 +28,6 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   if (sender.id !== chrome.runtime.id) {
     return;
   }
-
   // Content scripts run inside web pages and only ever send getCapture. Every
   // other action (cache passphrase, lock, cloud backup, ...) must come from an
   // extension page, so a compromised content script can't drive them.
@@ -728,44 +727,60 @@ chrome.commands.onCommand.addListener(async (command: string) => {
       }
       break;
 
-    case "autofill":
-      tab = await getCurrentTab();
-      if (okToInjectContentScript(tab)) {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["/js/content.js"],
-        });
-        await chrome.scripting.insertCSS({
-          target: { tabId: tab.id },
-          files: ["/css/content.css"],
-        });
-
-        const siteName = await getSiteName();
-        const entries = await EntryStorage.get();
-        // strict=true: autofill pastes a live OTP, so don't trust the page title
-        const matchedEntries = getMatchedEntries(siteName, entries, true);
-
-        if (matchedEntries && matchedEntries.length === 1) {
-          const entry = matchedEntries[0];
-          const encryption = new Encryption(
-            cachedPassphrase as string,
-            cachedKeyId as string,
-          );
-          // applyEncryption is async now; await so entry.code is decrypted
-          await entry.applyEncryption(encryption);
-
-          if (
-            entry.code !== CodeState.Encrypted &&
-            entry.code !== CodeState.Invalid
-          ) {
-            chrome.tabs.sendMessage(tab.id, {
-              action: "pastecode",
-              code: matchedEntries[0].code,
-            });
-          }
-        }
+    case "autofill": {
+      await UserSettings.updateItems();
+      if (UserSettings.items.autofill !== true) {
+        break;
       }
+      tab = await getCurrentTab();
+      if (!okToInjectContentScript(tab)) {
+        break;
+      }
+      const encryption = new Encryption(
+        cachedPassphrase as string,
+        cachedKeyId as string,
+      );
+      // With a master password set, a locked vault never autofills, even an
+      // entry that happens to be stored in plaintext.
+      if (await EntryStorage.requiresUnlock(encryption)) {
+        break;
+      }
+      const entries = await EntryStorage.get();
+      // Encrypted entries keep their issuer and bound host inside the
+      // ciphertext, so decrypt before matching.
+      for (const entry of entries) {
+        await entry.applyEncryption(encryption);
+      }
+      // strict=true: autofill pastes a live OTP, so don't trust the page title
+      const matchedEntries = getMatchedEntries(
+        getSiteNameFromTab(tab),
+        entries,
+        true,
+      );
+      if (!matchedEntries || matchedEntries.length !== 1) {
+        break;
+      }
+      const entry = matchedEntries[0];
+      if (
+        entry.code === CodeState.Encrypted ||
+        entry.code === CodeState.Invalid
+      ) {
+        break;
+      }
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["/js/content.js"],
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ["/css/content.css"],
+      });
+      chrome.tabs.sendMessage(tab.id, {
+        action: "pastecode",
+        code: entry.code,
+      });
       break;
+    }
 
     default:
       break;

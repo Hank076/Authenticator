@@ -1,24 +1,32 @@
 export async function getSiteName() {
-  const tab = await getCurrentTab();
   const query = new URLSearchParams(document.location.search.substring(1));
-
-  let title: string | null;
-  let url: string | null;
   const titleFromQuery = query.get("title");
   const urlFromQuery = query.get("url");
 
   if (titleFromQuery && urlFromQuery) {
-    title = decodeURIComponent(titleFromQuery);
-    url = decodeURIComponent(urlFromQuery);
-  } else {
-    if (!tab) {
-      return [null, null];
-    }
-
-    title = tab.title?.replace(/[^a-z0-9]/gi, "").toLowerCase() ?? null;
-    url = tab.url ?? null;
+    return getSiteNameFromPage(
+      decodeURIComponent(titleFromQuery),
+      decodeURIComponent(urlFromQuery),
+    );
   }
 
+  const tab = await getCurrentTab();
+  if (!tab) {
+    return [null, null];
+  }
+  return getSiteNameFromTab(tab);
+}
+
+// For callers that already hold the tab, such as the background keyboard
+// autofill, where there is no document to read a query from.
+export function getSiteNameFromTab(tab: chrome.tabs.Tab) {
+  return getSiteNameFromPage(
+    tab.title?.replace(/[^a-z0-9]/gi, "").toLowerCase() ?? null,
+    tab.url ?? null,
+  );
+}
+
+function getSiteNameFromPage(title: string | null, url: string | null) {
   if (!url) {
     return [title, null];
   }
