@@ -46,6 +46,9 @@ chrome.runtime.onMessage.addListener((message, sender) => {
       if (!sender.tab || sender.tab.id === undefined) {
         return;
       }
+      if (!(await claimCaptureGrant(sender.tab.id))) {
+        return;
+      }
       // Decode the QR here in the background rather than round-tripping the PNG
       // dataURL back to the content script: captureVisibleTab already hands us
       // the image, and keeping the @zxing decoder out of the injected content
@@ -100,6 +103,26 @@ chrome.alarms.onAlarm.addListener(() => {
     chrome.runtime.sendMessage({ action: "stopImport" }).catch(() => undefined);
   })();
 });
+
+// A QR scan the user starts (popup or scan-qr command) records its tab in
+// captureTabId. Each grant allows exactly one getCapture from that tab, so a
+// page can't replay the overlay to import again. Claims run one at a time:
+// two getCapture messages arriving together must not both read the grant
+// before either removes it.
+let captureGrantQueue: Promise<unknown> = Promise.resolve();
+
+function claimCaptureGrant(tabId: number): Promise<boolean> {
+  const claim = captureGrantQueue.then(async () => {
+    const { captureTabId } = await chrome.storage.session.get("captureTabId");
+    if (captureTabId !== tabId) {
+      return false;
+    }
+    await chrome.storage.session.remove("captureTabId");
+    return true;
+  });
+  captureGrantQueue = claim.catch(() => undefined);
+  return claim;
+}
 
 // The host of the tab a QR scan was initiated from, used to pre-bind a newly
 // imported entry to the site the user scanned it on.

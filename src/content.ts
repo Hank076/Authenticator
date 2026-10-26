@@ -1,11 +1,18 @@
 // @ts-expect-error - injected by vue-svg-loader
 import scanGIF from "../images/scan.gif";
 
+// One capture per "capture" message. Kept in module scope rather than in the
+// DOM or sessionStorage, which the page can read and write: the overlay stays
+// in the page after a scan, so without this the page could re-show it or
+// dispatch its own mouseup to capture again.
+let captureArmed = false;
+
 if (!document.getElementById("__ga_grayLayout__")) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.action) {
       case "capture":
         sendResponse("beginCapture");
+        captureArmed = true;
         showGrayLayout();
         break;
       case "errorqr":
@@ -93,6 +100,10 @@ function showGrayLayout() {
 }
 
 function grayLayoutDown(event: MouseEvent) {
+  // Synthetic events come from the page, not the user.
+  if (!event.isTrusted || !captureArmed) {
+    return;
+  }
   if (event.button === 1 || event.button === 2) {
     event.preventDefault();
     return;
@@ -161,11 +172,15 @@ function grayLayoutMove(event: MouseEvent) {
 }
 
 function grayLayoutUp(event: MouseEvent) {
+  if (!event.isTrusted || !captureArmed) {
+    return;
+  }
   const grayLayout = document.getElementById("__ga_grayLayout__");
   const captureBox = document.getElementById("__ga_captureBox__");
   if (!captureBox || !grayLayout) {
     return;
   }
+  captureArmed = false;
 
   setTimeout(() => {
     captureBox.style.display = "none";
