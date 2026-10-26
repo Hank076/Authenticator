@@ -1,0 +1,8 @@
+# Workflows pin actions to commit SHAs; Dependabot opens PRs that move the
+# pins (and their version comments) to new releases.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
