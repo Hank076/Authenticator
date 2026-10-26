@@ -63,8 +63,9 @@ function base64ToByteArray(base64: string) {
   return byteArray;
 }
 
+// Google Authenticator stores names as UTF-8 bytes.
 function byteArray2String(bytes: number[]) {
-  return String.fromCharCode.apply(null, bytes);
+  return new TextDecoder().decode(new Uint8Array(bytes));
 }
 
 function subBytesArray(bytes: number[], start: number, length: number) {
@@ -161,7 +162,9 @@ export function getOTPAuthPerLineFromOPTAuthMigration(migrationUri: string) {
       continue;
     }
 
-    let line = `otpauth://${type}/${account}?secret=${secret}&issuer=${issuer}&algorithm=${algorithm}&digits=${digits}`;
+    // Encode the names so "&", "?", "#" or "%" in them can't break or inject
+    // URI parameters; the otpauth parsers decode them again.
+    let line = `otpauth://${type}/${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=${algorithm}&digits=${digits}`;
     if (type === "hotp") {
       let counter = 1;
       // counter byte must sit inside this entry ([offset, offset+lineLength+2))

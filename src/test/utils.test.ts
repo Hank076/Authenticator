@@ -26,6 +26,7 @@ import { KeyUtilities } from "../models/key-utilities";
 import { MultiFormatWriter, BarcodeFormat } from "@zxing/library";
 import { decodeQrFromImageData, computeQrCropRegion } from "../qr-decoder";
 import { isKnownArgonEncoding } from "../argon-params";
+import { getOTPAuthPerLineFromOPTAuthMigration } from "../models/migration";
 import { useAdvisorStore } from "../store/Advisor";
 import { useBackupStore } from "../store/Backup";
 import { revokeDropboxTokens } from "../models/backup";
@@ -1500,6 +1501,50 @@ describe("useAdvisorStore init() parses a legacy JSON-string ignoreList", () => 
       await store.init();
       expect(store.ignoreList, advisorIgnoreList).to.deep.equal([]);
     }
+  });
+});
+
+// Google Authenticator stores account and issuer as UTF-8 bytes; the URI
+// must keep them intact and must not let "&" or "?" in a name add parameters.
+describe("getOTPAuthPerLineFromOPTAuthMigration", () => {
+  function field(tag: number, bytes: number[]) {
+    return [tag, bytes.length, ...bytes];
+  }
+
+  function migrationUri(account: string, issuer: string) {
+    const utf8 = (text: string) => Array.from(new TextEncoder().encode(text));
+    const otp = [
+      ...field(
+        10,
+        [0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0xde, 0xad, 0xbe, 0xef],
+      ),
+      ...field(18, utf8(account)),
+      ...field(26, utf8(issuer)),
+      32,
+      1, // SHA1
+      40,
+      1, // 6 digits
+      48,
+      2, // TOTP
+    ];
+    const payload = field(10, otp);
+    return (
+      "otpauth-migration://offline?data=" +
+      encodeURIComponent(btoa(String.fromCharCode(...payload)))
+    );
+  }
+
+  it("keeps UTF-8 names and encodes URI delimiters", () => {
+    const [line] = getOTPAuthPerLineFromOPTAuthMigration(
+      migrationUri("José&x=1@例子", "Café?#%"),
+    );
+    const url = new URL(line);
+    expect(decodeURIComponent(url.pathname.replace(/^\/+/, ""))).to.equal(
+      "José&x=1@例子",
+    );
+    expect(url.searchParams.get("issuer")).to.equal("Café?#%");
+    expect(url.searchParams.has("x")).to.equal(false);
+    expect(url.searchParams.get("secret")).to.equal("JBSWY3DPEHPK3PXP");
   });
 });
 
