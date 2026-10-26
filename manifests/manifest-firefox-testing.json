@@ -1,56 +1,59 @@
 {
-    "manifest_version": 2,
-    "name": "__MSG_extName__",
-    "short_name": "__MSG_extShortName__",
-    "version": "8.0.6",
-    "default_locale": "en",
-    "description": "__MSG_extDesc__",
-    "applications": {
-        "gecko": {
-            "id": "{aa04367e-4dc8-4833-87a1-43ee93ce9a42}",
-            "strict_min_version": "57.0"
-        }
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
+  "version": "8.0.6",
+  "default_locale": "en",
+  "description": "__MSG_extDesc__",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{aa04367e-4dc8-4833-87a1-43ee93ce9a42}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": ["authenticationInfo"]
+      }
     },
-    "icons": {
-        "16": "images/icon16.png",
-        "48": "images/icon48.png",
-        "128": "images/icon128.png"
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "19": "images/icon19.png",
+      "38": "images/icon38.png"
     },
-    "browser_action": {
-        "browser_style": false,
-        "default_icon": {
-            "19": "images/icon19.png",
-            "38": "images/icon38.png"
-        },
-        "default_title": "__MSG_extShortName__",
-        "default_popup": "view/popup.html"
+    "default_title": "__MSG_extShortName__",
+    "default_popup": "view/popup.html"
+  },
+  "background": {
+    "scripts": ["js/background.js"]
+  },
+  "commands": {
+    "_execute_action": {},
+    "scan-qr": {
+      "description": "Scan a QR code"
     },
-    "background": {
-        "scripts": [
-            "js/background.js"
-        ]
-    },
-    "commands": {
-        "_execute_browser_action": {},
-        "scan-qr": {
-            "description": "Scan a QR code"
-        }
-    },
-    "options_ui": {
-        "page": "view/options.html",
-        "browser_style": true
-    },
-    "permissions": [
-        "activeTab",
-        "<all_urls>",
-        "clipboardWrite",
-        "storage",
-        "identity"
-    ],
-    "optional_permissions": [
-        "clipboardWrite",
-        "https://www.google.com/",
-        "https://*.dropboxapi.com/*"
-    ],
-    "content_security_policy": "script-src 'self' 'unsafe-eval'; font-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src https://www.google.com/ https://*.dropboxapi.com; default-src 'none'"
+    "autofill": {
+      "description": "Autofill the matched code"
+    }
+  },
+  "options_ui": {
+    "page": "view/options.html",
+    "open_in_tab": false
+  },
+  "permissions": ["activeTab", "storage", "identity", "alarms", "scripting"],
+  "optional_permissions": ["clipboardWrite"],
+  "host_permissions": [
+    "https://www.google.com/",
+    "https://*.dropboxapi.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; font-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src https://www.google.com/ https://*.dropboxapi.com; default-src 'none'"
+  }
 }
