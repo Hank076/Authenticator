@@ -9,7 +9,8 @@
 PLATFORM=$1
 REMOTE=$(git config --get remote.origin.url)
 CREDS=$(cat ./src/models/credentials.ts | tr -d '\n')
-CREDREGEX='^.*".+".*".+".*".+".*".+".*".+".*$'
+# Dropbox is the only cloud provider; its client_id must be filled in.
+CREDREGEX='dropbox: *\{ *client_id: *"[^"]+"'
 STYLEFILES="./src/* ./src/**/* ./src/**/**/* ./src/**/**/**/* ./sass/*.scss"
 set -e
 
@@ -19,7 +20,7 @@ if [[ $PLATFORM != "chrome" ]] && [[ $PLATFORM != "firefox" ]] && [[ $PLATFORM !
 fi
 
 echo "Removing old build files..."
-rm -rf build js
+rm -rf build js css
 rm -rf firefox chrome edge release test
 echo "Checking style..."
 if ./node_modules/.bin/prettier --check $STYLEFILES 1> /dev/null ; then
@@ -57,7 +58,11 @@ elif [[ $PLATFORM = "test" ]]; then
 else
     ./node_modules/webpack-cli/bin/cli.js
 fi
-./node_modules/sass/sass.js sass:css
+if [[ $PLATFORM = "prod" ]]; then
+    ./node_modules/sass/sass.js --no-source-map sass:css
+else
+    ./node_modules/sass/sass.js sass:css
+fi
 cp ./sass/DroidSansMono.woff2 ./sass/mocha.css ./css/
 
 if [[ $PLATFORM = "prod" ]]; then
@@ -82,6 +87,12 @@ postCompile () {
     fi
 
     cp manifests/manifest-pwa.json $1/manifest-pwa.json
+
+    # Release builds ship without the in-browser test runner and QR debug page.
+    if [[ $PLATFORM = "prod" ]]; then
+        rm -f $1/view/test.html $1/view/qrdebug.html $1/js/qrdebug.js \
+            $1/css/mocha.css
+    fi
 }
 
 if [[ $PLATFORM = "prod" ]]; then
@@ -90,6 +101,10 @@ if [[ $PLATFORM = "prod" ]]; then
     postCompile "edge"
     mkdir release
     mv chrome firefox edge release
+    if [[ -n "$(find release -name '*.map' -print -quit)" ]]; then
+        echo "Error: source maps found in release/"
+        exit 1
+    fi
 elif [[ $PLATFORM = "test" ]]; then
     postCompile "chrome"
     postCompile "firefox"

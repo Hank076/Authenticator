@@ -14,13 +14,17 @@ jobs:
     name: Build and publish Chrome & Firefox extension ZIPs
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # gh release create uses GH_TOKEN; the public tag fetch needs no
+          # credentials, so don't leave the token in .git/config.
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6.1.0
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -30,29 +34,18 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
 
-      - name: Build Firefox production
+      - name: Build production
         run: |
           node scripts/check-cloud-permissions.js
-          node node_modules/webpack-cli/bin/cli.js --config webpack.prod.js
-          node node_modules/sass/sass.js --no-source-map sass:css
-          mkdir -p firefox/js firefox/css
-          cp -r images _locales view firefox/
-          cp LICENSE firefox/LICENSE
-          cp manifests/manifest-firefox.json firefox/manifest.json
-          cp manifests/manifest-pwa.json firefox/manifest-pwa.json
-          cp js/*.js js/*.LICENSE.txt firefox/js/
-          cp css/*.css firefox/css/
-          cp sass/mocha.css sass/DroidSansMono.woff2 firefox/css/
-          test -z "$(find firefox -name '*.map' -print -quit)"
+          pnpm run prod
+          test ! -e release/chrome/view/test.html
+          test ! -e release/firefox/view/test.html
 
       - name: Package Firefox
-        run: cd firefox && zip -r "../OTPilot-Authenticator-firefox-${GITHUB_REF_NAME}.zip" .
-
-      - name: Build Chrome
-        run: pnpm run chrome
+        run: cd release/firefox && zip -r "../../OTPilot-Authenticator-firefox-${GITHUB_REF_NAME}.zip" .
 
       - name: Package Chrome
-        run: cd chrome && zip -r "../OTPilot-Authenticator-chrome-${GITHUB_REF_NAME}.zip" .
+        run: cd release/chrome && zip -r "../../OTPilot-Authenticator-chrome-${GITHUB_REF_NAME}.zip" .
 
       - name: Create release
         run: |
