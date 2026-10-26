@@ -12,6 +12,8 @@ css
 .license-gen-tmp
 view/licenses.html
 scripts/test-runner.js
+scripts/test-runner-firefox.js
+scripts/test-report.js
 
 # release credentials
 scripts/authenticator-build-key

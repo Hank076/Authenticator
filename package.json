@@ -11,7 +11,9 @@
     "prod": "bash scripts/build.sh prod",
     "check:cloud-permissions": "node scripts/check-cloud-permissions.js",
     "pretest": "bash scripts/build.sh test",
-    "test": "node scripts/test-runner.js"
+    "test": "node scripts/test-runner.js",
+    "pretest:firefox": "bash scripts/build.sh test",
+    "test:firefox": "node scripts/test-runner-firefox.js"
   },
   "repository": {
     "type": "git",

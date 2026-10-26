@@ -50,6 +50,18 @@ pnpm run test
 
 Runs the extension in a real browser via puppeteer with in-browser mocha (`headless: false`, so a GUI is required).
 
+To run the same suite in Firefox, install puppeteer's Firefox once, then run the Firefox runner:
+
+```bash
+pnpm exec puppeteer browsers install firefox
+```
+
+```bash
+pnpm run test:firefox
+```
+
+Set `FIREFOX_BIN` to use another Firefox binary.
+
 ## i18n
 
 `_locales/en/messages.json` is the source of truth for keys. Crowdin is no longer used; other locales are maintained by hand. All locales must have the exact same key set as `en`, enforced by:
