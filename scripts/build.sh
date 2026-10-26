@@ -62,10 +62,9 @@ cp ./sass/DroidSansMono.woff2 ./sass/mocha.css ./css/
 
 if [[ $PLATFORM = "prod" ]]; then
     echo "Generating licenses file..."
-    ./node_modules/.bin/npm-license-generator \
-        --out-path ./view/licenses.html \
-        --template ./scripts/licenses-template.html \
-        --error-missing=true
+    node ./scripts/generate-licenses.js \
+        ./scripts/licenses-template.html \
+        ./view/licenses.html
 fi
 
 postCompile () {
